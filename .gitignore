@@ -1,0 +1,13 @@
+.DS_Store
+.build/
+.swiftpm/
+build/
+dist/
+*.app/
+*.p8
+*.p12
+*.mobileprovision
+.worktrees/
+.selecta/
+# Local design exploration and the UI prototype are deliberately not part of the source repository.
+/design/
