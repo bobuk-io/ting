@@ -112,21 +112,34 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func quit() { NSApp.terminate(nil) }
 }
 
-/// Monochrome template version of the Ting mark (dot + two arcs).
+/// Template menu-bar icon: a tuning fork, the source of the "ting" sound,
+/// with two short ticks for its vibration.
 enum StatusIcon {
     static let image: NSImage = {
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
             let s = rect.width / 18
-            let center = NSPoint(x: 4 * s, y: 9 * s)
-            NSColor.black.setFill()
-            NSBezierPath(ovalIn: NSRect(x: 1.75 * s, y: 6.75 * s, width: 4.5 * s, height: 4.5 * s)).fill()
-            for (radius, alpha) in [(6.0, 1.0), (10.5, 0.55)] {
-                let arc = NSBezierPath()
-                arc.appendArc(withCenter: center, radius: radius * s, startAngle: -50, endAngle: 50)
-                arc.lineWidth = 1.9 * s
-                arc.lineCapStyle = .round
-                NSColor.black.withAlphaComponent(alpha).setStroke()
-                arc.stroke()
+            func point(_ x: CGFloat, _ y: CGFloat) -> NSPoint { NSPoint(x: x * s, y: y * s) }
+            NSColor.black.setStroke()
+
+            let fork = NSBezierPath()
+            fork.move(to: point(5.5, 16.5))
+            fork.line(to: point(5.5, 9.5))
+            fork.appendArc(withCenter: point(9, 9.5), radius: 3.5 * s, startAngle: 180, endAngle: 360)
+            fork.line(to: point(12.5, 16.5))
+            fork.move(to: point(9, 6))
+            fork.line(to: point(9, 1.5))
+            fork.lineWidth = 1.8 * s
+            fork.lineCapStyle = .round
+            fork.lineJoinStyle = .round
+            fork.stroke()
+
+            for x in [2.2, 15.8] as [CGFloat] {
+                let tick = NSBezierPath()
+                tick.move(to: point(x, 14.5))
+                tick.line(to: point(x, 11.5))
+                tick.lineWidth = 1.3 * s
+                tick.lineCapStyle = .round
+                tick.stroke()
             }
             return true
         }
