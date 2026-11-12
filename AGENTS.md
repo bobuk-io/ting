@@ -34,5 +34,5 @@
   testing. Use `TING_CONFIG=/tmp/...` for manual checks.
 - Do not send synthetic key presses while the user is working: the leader menu
   takes keyboard focus and can swallow their typing.
-- After publishing a release, update the Ting copy on the landing site
-  (`~/GitHub/bobuk.io/landing`) when user-facing facts change.
+- After every release, update the Ting pages on the landing site
+  (`~/GitHub/bobuk.io/landing`) when the release needs it. See `../AGENTS.md`.
