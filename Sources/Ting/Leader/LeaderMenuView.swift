@@ -27,19 +27,16 @@ private struct SoundList: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                TingMark(size: 14)
-                MonoLabel("Ting  ·  selector", size: 10, tracking: 2).foregroundStyle(Color.tingAmber)
-                Spacer()
+            if session.showPanelHeader {
+                HStack(spacing: 8) {
+                    TingMark(size: 14)
+                    MonoLabel("Ting  ·  selecta", size: 10, tracking: 2).foregroundStyle(Color.tingAmber)
+                    Spacer()
+                }
             }
             // The typed sequence as a track: leader, keys so far, blinking slot.
             HStack(spacing: 6) {
-                Text(session.leader)
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.tingMuted)
-                    .padding(.horizontal, 8).frame(height: 30)
-                    .overlay(RoundedRectangle(cornerRadius: 7)
-                        .strokeBorder(Color.tingMuted.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+                LeaderToken(leader: session.leader)
                 ForEach(Array(session.path.enumerated()), id: \.offset) { KeyCap(key: $0.element, style: .sound, large: true) }
                 BlinkingSlot()
                 Spacer()

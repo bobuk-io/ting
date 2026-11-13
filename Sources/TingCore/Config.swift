@@ -87,7 +87,7 @@ public enum Appearance: String, Codable, Sendable, CaseIterable {
 
 /// The whole config file (`~/.config/ting/config.json`).
 /// JSON keys: "version", "leader" (Hotkey string or null), "showDelay", "unknownKey",
-/// "appearance", "launchAtLogin", "showMenuBarIcon", "playSound", "items".
+/// "appearance", "launchAtLogin", "showMenuBarIcon", "showPanelHeader", "playSound", "items".
 /// Every key is optional when decoding; a missing key takes the default below.
 public struct Config: Equatable, Sendable, Codable {
     public static let currentVersion = 1
@@ -102,6 +102,8 @@ public struct Config: Equatable, Sendable, Codable {
     public var appearance: Appearance = .dark
     public var launchAtLogin: Bool = false
     public var showMenuBarIcon: Bool = true
+    /// Show the title row above selecta and launcha panels.
+    public var showPanelHeader: Bool = true
     public var playSound: Bool = true
     public var items: [Item] = []
 
@@ -125,7 +127,7 @@ public struct Config: Equatable, Sendable, Codable {
     }
 
     private enum ConfigCodingKeys: String, CodingKey {
-        case version, leader, showDelay, unknownKey, appearance, launchAtLogin, showMenuBarIcon, playSound, items
+        case version, leader, showDelay, unknownKey, appearance, launchAtLogin, showMenuBarIcon, showPanelHeader, playSound, items
     }
 
     public init(from decoder: Decoder) throws {
@@ -139,6 +141,7 @@ public struct Config: Equatable, Sendable, Codable {
         appearance = try container.decodeIfPresent(Appearance.self, forKey: .appearance) ?? defaults.appearance
         launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? defaults.launchAtLogin
         showMenuBarIcon = try container.decodeIfPresent(Bool.self, forKey: .showMenuBarIcon) ?? defaults.showMenuBarIcon
+        showPanelHeader = try container.decodeIfPresent(Bool.self, forKey: .showPanelHeader) ?? defaults.showPanelHeader
         playSound = try container.decodeIfPresent(Bool.self, forKey: .playSound) ?? defaults.playSound
         items = try container.decodeIfPresent([Item].self, forKey: .items) ?? defaults.items
     }
@@ -156,6 +159,7 @@ public struct Config: Equatable, Sendable, Codable {
         try container.encode(appearance, forKey: .appearance)
         try container.encode(launchAtLogin, forKey: .launchAtLogin)
         try container.encode(showMenuBarIcon, forKey: .showMenuBarIcon)
+        try container.encode(showPanelHeader, forKey: .showPanelHeader)
         try container.encode(playSound, forKey: .playSound)
         try container.encode(items, forKey: .items)
     }

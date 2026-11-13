@@ -43,6 +43,7 @@ final class LeaderPanel: NSPanel {
 @Observable
 final class LeaderSession {
     var leader = ""
+    var showPanelHeader = true
     var path: [String] = []
     var items: [Item] = []
     var shakeToken = 0
@@ -69,6 +70,7 @@ final class LeaderController: NSObject, NSWindowDelegate {
         machine.unknownKey = config.unknownKey
         showDelay = config.showDelay
         session.leader = config.leader?.display ?? ""
+        session.showPanelHeader = config.showPanelHeader
         if machine.isOpen {
             session.path = machine.path
             session.items = machine.currentItems

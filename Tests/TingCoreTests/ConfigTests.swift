@@ -15,8 +15,16 @@ import Testing
         #expect(c.appearance == .dark)
         #expect(!c.launchAtLogin)
         #expect(c.showMenuBarIcon)
+        #expect(c.showPanelHeader)
         #expect(c.playSound)
         #expect(c.items.isEmpty)
+    }
+    @Test func panelHeaderCompatibility() throws {
+        #expect(try decode(#"{"leader":"home"}"#).showPanelHeader)
+        #expect(try decode(#"{"showPanelHeader":true}"#).showPanelHeader)
+        let hidden = try decode(#"{"showPanelHeader":false}"#)
+        #expect(!hidden.showPanelHeader)
+        #expect(try ConfigCodec.decode(ConfigCodec.encode(hidden)) == hidden)
     }
     @Test func exampleAndItemProperties() throws {
         let c = try decode(#"{"items":[{"key":"A","label":"Apps","items":[{"key":"s","app":"com.apple.Safari"},{"key":"g","label":"GitHub","url":"https://github.com","future":42}]}],"future":true}"#)
@@ -35,7 +43,7 @@ import Testing
         #"{"items":[{"key":"a","items":[],"app":"x"}]}"#,
         #"{"items":[{"key":"a","items":[],"url":"https://x"}]}"#,
         #"{"items":[{"key":"tab","app":"x"}]}"#,
-        #"{"leader":"unknown"}"#, #"{"showDelay":"fast"}"#])
+        #"{"leader":"unknown"}"#, #"{"showDelay":"fast"}"#, #"{"showPanelHeader":"yes"}"#])
     func invalidFormat(_ json: String) {
         #expect(throws: (any Error).self) {
             do { _ = try decode(json) }
@@ -60,6 +68,7 @@ import Testing
         full.appearance = .light
         full.launchAtLogin = true
         full.showMenuBarIcon = false
+        full.showPanelHeader = false
         full.playSound = false
         full.items = [.group("w", "Web", [.url("g", "GitHub", "https://github.com")]), .app("t", "Terminal", "com.apple.Terminal")]
         for c in [Config(), Config.sample, full] {
@@ -67,7 +76,7 @@ import Testing
             #expect(try ConfigCodec.decode(data) == c)
             #expect(ConfigCodec.encode(c) == data)
             let text = String(decoding: data, as: UTF8.self)
-            let rootKeys = ["appearance", "items", "launchAtLogin", "leader", "playSound", "showDelay", "showMenuBarIcon", "unknownKey", "version"]
+            let rootKeys = ["appearance", "items", "launchAtLogin", "leader", "playSound", "showDelay", "showMenuBarIcon", "showPanelHeader", "unknownKey", "version"]
             let positions = rootKeys.compactMap { text.range(of: "\"\($0)\"")?.lowerBound }
             #expect(positions == positions.sorted())
             #expect(text.hasSuffix("\n"))

@@ -78,6 +78,32 @@ struct TingMark: View {
     }
 }
 
+/// The leader is a tuning fork rather than the name of the configured key.
+/// Two forks can represent a double-tap in the launcha panel.
+struct LeaderToken: View {
+    let leader: String
+    var taps = 1
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<taps, id: \.self) { _ in
+                Image(nsImage: StatusIcon.image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 18, height: 18)
+            }
+        }
+        .foregroundStyle(Color.tingMuted)
+        .padding(.horizontal, 6)
+        .frame(minWidth: 30, minHeight: 30)
+        .overlay(RoundedRectangle(cornerRadius: 7)
+            .strokeBorder(Color.tingMuted.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(taps == 1 ? "Leader: \(leader)" : "Leader: \(leader), pressed twice")
+        .help(taps == 1 ? leader : "\(leader), pressed twice")
+    }
+}
+
 enum KeyCapStyle { case quiet, sound }
 
 /// A binding key. Shows the active non-Latin layout letter as a small hint.

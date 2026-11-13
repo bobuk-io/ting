@@ -49,6 +49,11 @@ private struct GeneralSettings: View {
             }
             .pickerStyle(.segmented)
             Section {
+                Toggle("Show panel title", isOn: model.binding(\.showPanelHeader))
+                Text("Show the Ting · selecta / launcha title row. The leader symbol and input stay visible.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } header: { MonoLabel("Panel", size: 9).foregroundStyle(Color.tingAmber) }
+            Section {
                 LabeledContent("Leader") { LeaderField() }
                 LabeledContent("Show menu after") {
                     HStack {

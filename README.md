@@ -44,6 +44,8 @@ releases; you can turn automatic checks off in Settings.
 - **Fast typing:** if you type the whole sequence quickly, the menu never appears.
   The delay is 0.25 s by default and can be changed in Settings.
 
+The menu shows the leader as a tuning-fork symbol; its tooltip names your configured key.
+
 The menu appears on the display that contains the pointer, above full-screen
 apps and on every Space.
 
@@ -54,7 +56,8 @@ Spotlight.
 
 - **General:** light or dark theme (dark by default), the leader key, the menu
   delay, what an unknown key does, launch at login, the menu-bar icon, the
-  "ting" sound and update checks.
+  "ting" sound and update checks. “Show panel title” controls the `Ting · selecta`
+  title row (on by default); hiding it keeps the leader symbol and sequence visible.
 - **Bindings:** one table of key sequences. Click the record button, type the
   keys and press **Done** (`Space` and `Return` are recorded as keys). Missing
   groups are created and empty groups are removed automatically. If a shorter
