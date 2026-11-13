@@ -7,30 +7,23 @@ struct IndexedLaunchaApp: Sendable {
     var url: URL
 }
 
-/// Bounded scans run on this actor. Call refreshOnOpen for every panel opening.
+/// App scans run on this actor. Call refreshOnOpen for every panel opening.
 /// While open, call refreshIfNeeded periodically; it scans at most once per minute.
 actor LaunchaAppIndex {
     struct Snapshot: Sendable {
         var apps: [IndexedLaunchaApp]
         var issues: [LaunchaServiceIssue]
     }
-    struct Limits: Sendable {
-        var depth = 8
-        var entries = 20_000
-        var seconds: TimeInterval = 5
-    }
     private let roots: [URL]
     private let policy: LaunchaPathPolicy
-    private let limits: Limits
     private var cached = Snapshot(apps: [], issues: [])
     private var lastRefresh: Date?
 
     init(home: URL = FileManager.default.homeDirectoryForCurrentUser,
-         protectedFolders: ProtectedFolderPolicy = .needsConsent, roots: [URL]? = nil, limits: Limits = Limits()) {
+         protectedFolders: ProtectedFolderPolicy = .needsConsent, roots: [URL]? = nil) {
         self.roots = roots ?? [URL(fileURLWithPath: "/Applications"), URL(fileURLWithPath: "/System/Applications"),
                               home.appendingPathComponent("Applications"), home.appendingPathComponent("Desktop")]
         policy = LaunchaPathPolicy(home: home, protectedFolders: protectedFolders)
-        self.limits = limits
     }
 
     func refreshIfNeeded(now: Date = Date()) -> Snapshot {
@@ -40,33 +33,41 @@ actor LaunchaAppIndex {
 
     func refreshOnOpen() -> Snapshot {
         let fm = FileManager.default
-        let deadline = Date().addingTimeInterval(limits.seconds)
         var result = Snapshot(apps: [], issues: [])
         var visited: Set<String> = []
         var ids: Set<String> = []
-        var count = 0
-        var stopped = false
-        func walk(_ lexical: URL, depth: Int) {
-            guard !stopped, !Task.isCancelled else { return }
+        // Keep directory iterators, not recursive calls or complete child lists.
+        enum Work {
+            case visit(URL, isRoot: Bool)
+            case children(FileManager.DirectoryEnumerator)
+        }
+        var work = roots.reversed().map { Work.visit($0, isRoot: true) }
+        while !Task.isCancelled, let next = work.popLast() {
+            let lexical: URL
+            let isRoot: Bool
+            switch next {
+            case .visit(let url, let root):
+                lexical = url
+                isRoot = root
+            case .children(let children):
+                guard let child = children.nextObject() as? URL else { continue }
+                work.append(.children(children))
+                work.append(.visit(child, isRoot: false))
+                continue
+            }
             if policy.needsConsent(lexical) {
                 result.issues.append(.init(kind: .needsConsent, url: lexical, message: "Folder access needs a user action."))
-                return
+                continue
             }
             let url = LaunchaPathPolicy.realURL(lexical) ?? lexical.standardizedFileURL
             if policy.needsConsent(url) {
                 result.issues.append(.init(kind: .needsConsent, url: url, message: "Folder access needs a user action."))
-                return
+                continue
             }
-            guard visited.insert(url.path).inserted else { return }
-            count += 1
-            guard count <= limits.entries, Date() < deadline else {
-                stopped = true
-                result.issues.append(.init(kind: .limit, url: url, message: "App index scan limit reached."))
-                return
-            }
+            guard visited.insert(url.path).inserted else { continue }
             do {
                 let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey, .localizedNameKey, .isHiddenKey])
-                guard values.isDirectory == true, values.isHidden != true else { return }
+                guard values.isDirectory == true, values.isHidden != true else { continue }
                 if url.pathExtension.lowercased() == "app" {
                     let bundle = Bundle(url: url)
                     let name = (bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
@@ -76,26 +77,25 @@ actor LaunchaAppIndex {
                     if let id = bundle?.bundleIdentifier, !id.isEmpty { candidate = .app(bundleID: id, name: name) }
                     else { candidate = LaunchaCandidate(id: "app-path:" + url.path, name: name, target: .url(url.absoluteString)) }
                     if ids.insert(candidate.id).inserted { result.apps.append(.init(candidate: candidate, url: url)) }
-                    return
+                    continue
                 }
-                guard values.isPackage != true else { return }
-                guard depth < limits.depth else {
-                    result.issues.append(.init(kind: .limit, url: url, message: "App index depth limit reached."))
-                    return
-                }
-                for child in try fm.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]).sorted(by: { $0.path < $1.path }) {
-                    walk(child, depth: depth + 1)
-                    if stopped || Task.isCancelled { break }
+                guard values.isPackage != true, !Task.isCancelled else { continue }
+                if let children = fm.enumerator(at: url, includingPropertiesForKeys: nil,
+                                                options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants],
+                                                errorHandler: { failedURL, error in
+                                                    result.issues.append(.access(error, at: failedURL))
+                                                    return !Task.isCancelled
+                                                }) {
+                    work.append(.children(children))
                 }
             } catch {
                 // Optional roots may not exist yet. Other failures must reach the caller.
                 let ns = error as NSError
-                if !(depth == 0 && ns.domain == NSCocoaErrorDomain && ns.code == NSFileReadNoSuchFileError) {
+                if !(isRoot && ns.domain == NSCocoaErrorDomain && ns.code == NSFileReadNoSuchFileError) {
                     result.issues.append(.access(error, at: url))
                 }
             }
         }
-        for root in roots { walk(root, depth: 0) }
         if !Task.isCancelled { cached = result; lastRefresh = Date() }
         return result
     }
