@@ -16,6 +16,9 @@ from grime and sound-system culture: amber keycaps on graphite, `esc pull up`,
 Requires **macOS 14 or later**. Official releases are universal builds for
 **Apple Silicon and Intel**.
 
+[Release notes for Ting 0.3.1](docs/releases/v0.3.1.md): tighter selecta spacing
+when panel titles are hidden, and fewer technical notices in launcha.
+
 ## Install
 
 1. Download the universal ZIP from [Releases](https://github.com/bobuk-io/ting/releases/latest).
@@ -102,7 +105,8 @@ Spotlight.
   delay, what an unknown key does, launch at login, the menu-bar icon, the
   "ting" sound and update checks. “Show panel title” controls the `Ting · selecta`
   and `Ting · launcha` title rows (on by default); hiding them keeps the leader
-  symbol, sequence and search input visible.
+  symbol, sequence and search input visible. With the title hidden, selecta uses
+  the same compact gap below the amber top rule as launcha.
   The launcha section sets its hotkey, the leader double tap and its
   interval, and access to Desktop, Documents and Downloads.
 - **Bindings:** one table of key sequences. Click the record button, type the
