@@ -112,8 +112,8 @@ final class LaunchaPanelKeyRouteTests: XCTestCase {
     }
 
     func testTextCommandsAndReveal() {
-        XCTAssertEqual(route(9, "v", .command), .action(Selector("paste:")))
-        XCTAssertEqual(route(6, "z", [.command, .shift]), .action(Selector("redo:")))
+        XCTAssertEqual(route(9, "v", .command), .action(#selector(NSText.paste(_:))))
+        XCTAssertEqual(route(6, "z", [.command, .shift]), .action(NSSelectorFromString("redo:")))
         XCTAssertEqual(route(36, nil, .command), .reveal)
         XCTAssertEqual(route(76, nil, .command), .reveal)
         XCTAssertEqual(route(36, nil, [.command, .shift]), .swallow)
