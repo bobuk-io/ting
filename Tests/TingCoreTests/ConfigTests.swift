@@ -18,6 +18,31 @@ import Testing
         #expect(c.showPanelHeader)
         #expect(c.playSound)
         #expect(c.items.isEmpty)
+        #expect(c.launcha == LaunchaSettings())
+        #expect(c.launcha.hotkey == nil)
+        #expect(c.launcha.doubleTap)
+        #expect(c.launcha.doubleTapWindow == 0.3)
+    }
+    @Test func launchaCompatibility() throws {
+        // A 0.2.x file without "launcha" gets the defaults and keeps everything else.
+        let old = try decode(#"{"version":1,"leader":"f13","showDelay":0.5,"showPanelHeader":false,"items":[{"key":"s","label":"Safari","app":"com.apple.Safari"}]}"#)
+        #expect(old.launcha == LaunchaSettings())
+        #expect(old.leader == Hotkey(string: "f13"))
+        #expect(!old.showPanelHeader)
+        #expect(old.items == [.app("s", "Safari", "com.apple.Safari")])
+        #expect(try decode(#"{"launcha":{}}"#).launcha == LaunchaSettings())
+        #expect(try decode(#"{"launcha":{"hotkey":null}}"#).launcha.hotkey == nil)
+        let custom = try decode(#"{"launcha":{"hotkey":"cmd+space","doubleTap":false,"doubleTapWindow":0.45,"future":1}}"#)
+        #expect(custom.launcha.hotkey == .combo(keyCode: 49, modifiers: .command))
+        #expect(!custom.launcha.doubleTap)
+        #expect(custom.launcha.doubleTapWindow == 0.45)
+        #expect(try ConfigCodec.decode(ConfigCodec.encode(custom)) == custom)
+        #expect(try decode(#"{"launcha":{"doubleTapWindow":0}}"#).launcha.doubleTapWindow == 0.1)
+        #expect(try decode(#"{"launcha":{"doubleTapWindow":5}}"#).launcha.doubleTapWindow == 1.0)
+        // A modifier on its own parses, so the validator can report it.
+        #expect(try decode(#"{"launcha":{"hotkey":"right-option"}}"#).launcha.hotkey == .modifierTap(.rightOption))
+        let text = String(decoding: ConfigCodec.encode(Config()), as: UTF8.self)
+        #expect(text.contains(#""hotkey" : null"#))
     }
     @Test func panelHeaderCompatibility() throws {
         #expect(try decode(#"{"leader":"home"}"#).showPanelHeader)
@@ -43,7 +68,8 @@ import Testing
         #"{"items":[{"key":"a","items":[],"app":"x"}]}"#,
         #"{"items":[{"key":"a","items":[],"url":"https://x"}]}"#,
         #"{"items":[{"key":"tab","app":"x"}]}"#,
-        #"{"leader":"unknown"}"#, #"{"showDelay":"fast"}"#, #"{"showPanelHeader":"yes"}"#])
+        #"{"leader":"unknown"}"#, #"{"showDelay":"fast"}"#, #"{"showPanelHeader":"yes"}"#,
+        #"{"launcha":"yes"}"#, #"{"launcha":{"hotkey":"nope"}}"#, #"{"launcha":{"doubleTap":"yes"}}"#])
     func invalidFormat(_ json: String) {
         #expect(throws: (any Error).self) {
             do { _ = try decode(json) }
@@ -70,13 +96,16 @@ import Testing
         full.showMenuBarIcon = false
         full.showPanelHeader = false
         full.playSound = false
+        full.launcha.hotkey = .combo(keyCode: 49, modifiers: [.option])
+        full.launcha.doubleTap = false
+        full.launcha.doubleTapWindow = 0.5
         full.items = [.group("w", "Web", [.url("g", "GitHub", "https://github.com")]), .app("t", "Terminal", "com.apple.Terminal")]
         for c in [Config(), Config.sample, full] {
             let data = ConfigCodec.encode(c)
             #expect(try ConfigCodec.decode(data) == c)
             #expect(ConfigCodec.encode(c) == data)
             let text = String(decoding: data, as: UTF8.self)
-            let rootKeys = ["appearance", "items", "launchAtLogin", "leader", "playSound", "showDelay", "showMenuBarIcon", "showPanelHeader", "unknownKey", "version"]
+            let rootKeys = ["appearance", "items", "launchAtLogin", "launcha", "leader", "playSound", "showDelay", "showMenuBarIcon", "showPanelHeader", "unknownKey", "version"]
             let positions = rootKeys.compactMap { text.range(of: "\"\($0)\"")?.lowerBound }
             #expect(positions == positions.sorted())
             #expect(text.hasSuffix("\n"))
@@ -116,6 +145,27 @@ import Testing
         #expect(ConfigValidator.validate(c).map(\.sequence) == [[]])
         c.leader = .combo(keyCode: 115, modifiers: [])
         #expect(ConfigValidator.validate(c).isEmpty)
+    }
+    @Test func launchaHotkeyIssues() {
+        var c = Config()
+        c.leader = .combo(keyCode: 105, modifiers: [])
+        c.launcha.hotkey = .modifierTap(.leftCommand)
+        #expect(ConfigValidator.validate(c).map(\.kind) == [.invalidLaunchaHotkey])
+        c.launcha.hotkey = .combo(keyCode: 0, modifiers: [.function])
+        #expect(ConfigValidator.validate(c).map(\.kind) == [.invalidLaunchaHotkey])
+        c.launcha.hotkey = .combo(keyCode: 105, modifiers: [])
+        #expect(ConfigValidator.validate(c).map(\.kind) == [.launchaHotkeyConflict])
+        #expect(ConfigValidator.validate(c).map(\.sequence) == [[]])
+        c.launcha.hotkey = Hotkey(string: "f13")
+        #expect(ConfigValidator.validate(c).map(\.kind) == [.launchaHotkeyConflict])
+        c.launcha.hotkey = .combo(keyCode: 105, modifiers: [.shift])
+        #expect(ConfigValidator.validate(c).isEmpty)
+        c.launcha.hotkey = nil
+        #expect(ConfigValidator.validate(c).isEmpty)
+        // No leader yet: a valid launcha hotkey cannot conflict.
+        c.leader = nil
+        c.launcha.hotkey = .combo(keyCode: 105, modifiers: [])
+        #expect(ConfigValidator.validate(c).map(\.kind) == [.missingLeader])
     }
     @Test func depthFirstAndDuplicates() {
         var c = Config()
