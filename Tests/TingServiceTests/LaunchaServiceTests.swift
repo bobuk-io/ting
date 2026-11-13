@@ -26,6 +26,8 @@ final class LaunchaServiceTests: XCTestCase {
         try app(a, id: "io.bobuk.test")
         try app(a.appendingPathComponent("Contents/Hidden.app"), id: "io.bobuk.hidden")
         try app(apps.appendingPathComponent("Duplicate.app"), id: "io.bobuk.test")
+        try app(apps.appendingPathComponent("Container.bundle/Nested.app"), id: "io.bobuk.packaged")
+        try app(apps.appendingPathComponent(".hidden/Secret.app"), id: "io.bobuk.secret")
         let anonymous = apps.appendingPathComponent("NoID.app")
         try app(anonymous)
         try FileManager.default.createSymbolicLink(at: apps.appendingPathComponent("Loop"), withDestinationURL: apps)
@@ -61,7 +63,7 @@ final class LaunchaServiceTests: XCTestCase {
         XCTAssertEqual(refreshed.apps.count, 2)
     }
 
-    func testDesktopConsentAndLimits() async throws {
+    func testDesktopConsent() async throws {
         let home = try temporary()
         let desktop = home.appendingPathComponent("Desktop")
         try app(desktop.appendingPathComponent("Tool.app"))
@@ -72,9 +74,36 @@ final class LaunchaServiceTests: XCTestCase {
         let allowed = LaunchaAppIndex(home: home, protectedFolders: .allowed, roots: [desktop])
         let indexed = await allowed.refreshOnOpen()
         XCTAssertEqual(indexed.apps.count, 1)
-        let bounded = LaunchaAppIndex(home: home, protectedFolders: .allowed, roots: [desktop], limits: .init(depth: 0, entries: 1, seconds: 5))
-        let limited = await bounded.refreshOnOpen()
-        XCTAssertEqual(limited.issues.first?.kind, .limit)
+        XCTAssertTrue(indexed.issues.isEmpty)
+    }
+
+    func testIndexBeyondFormerDepthLimit() async throws {
+        let root = try temporary()
+        var folder = root
+        for _ in 0..<32 { folder.appendPathComponent("level") }
+        let deepApp = folder.appendingPathComponent("Deep.app")
+        try app(deepApp, id: "io.bobuk.deep")
+        try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("Loop"), withDestinationURL: root)
+        let index = LaunchaAppIndex(home: root, roots: [root])
+        let result = await index.refreshOnOpen()
+        XCTAssertEqual(result.apps.map(\.url.path), [deepApp.path])
+        XCTAssertTrue(result.issues.isEmpty)
+    }
+
+    func testIndexBeyondFormerEntryLimit() async throws {
+        let root = try temporary()
+        let files = root.appendingPathComponent("Files")
+        try FileManager.default.createDirectory(at: files, withIntermediateDirectories: true)
+        for entry in 0..<20_001 {
+            try Data().write(to: files.appendingPathComponent("file-\(entry)"))
+        }
+        let target = root.appendingPathComponent("Target.app")
+        try app(target, id: "io.bobuk.target")
+        // Scan the large root first so the target must come after the former cap.
+        let index = LaunchaAppIndex(home: root, roots: [files, target])
+        let result = await index.refreshOnOpen()
+        XCTAssertEqual(result.apps.map(\.url.path), [target.path])
+        XCTAssertTrue(result.issues.isEmpty)
     }
 
     func testPathRestrictionsIncludeSymlinks() throws {

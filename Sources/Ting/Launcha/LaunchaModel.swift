@@ -250,7 +250,7 @@ final class LaunchaModel {
             return issue.kind == .limit ? "Search incomplete: \(issue.message)"
                 : "Search incomplete: some files could not be checked (\(issue.message))."
         }
-        if let issue = indexIssues.first(where: { $0.kind != .needsConsent && $0.message != "App index depth limit reached." }) {
+        if let issue = indexIssues.first(where: { $0.kind != .needsConsent }) {
             return "App list may be incomplete: \(issue.message)"
         }
         return nil
