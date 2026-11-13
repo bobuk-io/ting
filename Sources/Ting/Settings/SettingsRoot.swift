@@ -70,6 +70,7 @@ private struct GeneralSettings: View {
                     Text("Close the menu").tag(UnknownKeyBehavior.close)
                 }
             } header: { MonoLabel("Activation", size: 9).foregroundStyle(Color.tingAmber) }
+            LaunchaSettingsSection()
             Section {
                 Toggle("Launch at login", isOn: model.binding(\.launchAtLogin))
                 if let error = model.loginItemError {
@@ -94,7 +95,52 @@ private struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 560, height: updates.isAvailable ? 580 : 470)
+        .frame(width: 560, height: updates.isAvailable ? 720 : 620)
+    }
+}
+
+// MARK: - launcha
+
+private struct LaunchaSettingsSection: View {
+    @Environment(AppModel.self) private var model
+    @State private var confirmingFolders = false
+
+    var body: some View {
+        let launcha = model.config.launcha
+        Section {
+            LabeledContent("Hotkey") { LaunchaHotkeyField() }
+            Toggle("Double-tap the leader", isOn: model.binding(\.launcha.doubleTap))
+            LabeledContent("Double-tap interval") {
+                HStack {
+                    Slider(value: model.binding(\.launcha.doubleTapWindow),
+                           in: LaunchaSettings.doubleTapWindowRange, step: 0.05)
+                        .frame(width: 160)
+                        .accessibilityValue(String(format: "%.2f seconds", launcha.doubleTapWindow))
+                    Text(String(format: "%.2f s", launcha.doubleTapWindow))
+                        .font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                        .frame(width: 64, alignment: .leading)
+                }
+            }
+            .disabled(!launcha.doubleTap)
+            Text("Press the leader twice to open launcha. The first press opens selecta at once, so sequences are never delayed. A separate hotkey is optional.")
+                .font(.caption).foregroundStyle(.secondary)
+            Toggle("Search Desktop, Documents and Downloads", isOn: Binding(
+                get: { model.protectedFoldersAllowed },
+                set: { allowed in
+                    if allowed { confirmingFolders = true } else { model.setProtectedFoldersAllowed(false) }
+                }))
+            Text("Off by default. Ting saves this choice outside the config file.")
+                .font(.caption).foregroundStyle(.secondary)
+            if let error = model.launchaConsentError {
+                Text(error).font(.caption).foregroundStyle(Color.tingAmber)
+            }
+        } header: { MonoLabel("launcha", size: 9).foregroundStyle(Color.tingAmber) }
+        .alert("Search Desktop, Documents and Downloads?", isPresented: $confirmingFolders) {
+            Button("Allow Access") { model.setProtectedFoldersAllowed(true) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("launcha will also list apps on your Desktop and find files in these folders. macOS may ask you to allow Ting to access each folder.")
+        }
     }
 }
 

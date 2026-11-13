@@ -36,7 +36,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private func updateButton() {
         statusItem.isVisible = model.config.showMenuBarIcon
-        let problem = model.configError != nil || model.hotkeyProblem != nil
+        let problem = model.configError != nil || model.hotkeyProblem != nil || model.launchaHotkeyProblem != nil
         statusItem.button?.appearsDisabled = !model.isLeaderActive
         statusItem.button?.toolTip = model.isPaused ? "Ting is paused"
             : model.config.leader == nil ? "Ting: no leader key yet"
@@ -58,8 +58,21 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if let problem = model.hotkeyProblem {
             menu.addItem(note(problem, symbol: "exclamationmark.triangle"))
         }
-        if let error = model.configError ?? model.issues.first(where: { $0.kind != .missingLeader })?.message {
+        let launchaIssues: Set<ConfigIssue.Kind> = [.missingLeader, .invalidLaunchaHotkey, .launchaHotkeyConflict]
+        if let error = model.configError ?? model.issues.first(where: { !launchaIssues.contains($0.kind) })?.message {
             menu.addItem(note(error, symbol: "exclamationmark.triangle"))
+        }
+
+        menu.addItem(.separator())
+        let launcha = item("Open launcha", #selector(openLauncha))
+        if let hotkey = model.config.launcha.hotkey, model.launchaHotkeyProblem == nil {
+            launcha.title = "Open launcha (\(hotkey.display))"
+        }
+        // Menu items auto-enable: without an action the item is disabled while paused.
+        if model.isPaused { launcha.action = nil }
+        menu.addItem(launcha)
+        if let problem = model.launchaHotkeyProblem {
+            menu.addItem(note(problem, symbol: "exclamationmark.triangle"))
         }
 
         menu.addItem(.separator())
@@ -97,6 +110,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     @objc private func chooseLeader() { openWelcome() }
+    @objc private func openLauncha() {
+        // Let the menu finish closing first, so the panel keeps keyboard focus.
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.model.openLauncha() } }
+    }
     @objc private func togglePause() { model.isPaused.toggle() }
     @objc private func showSettings() { openSettings() }
     @objc private func openConfig() { model.openConfigFile() }

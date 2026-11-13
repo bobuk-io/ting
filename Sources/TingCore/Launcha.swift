@@ -398,11 +398,19 @@ public enum LeaderPress: Equatable, Sendable {
 /// - the second press comes at most `window` seconds after the first.
 /// A press while the leader is still held (no release since the last press) is `.ignored`,
 /// so key repeats never count twice. The caller must report releases.
+///
+/// If a release is lost (for example the hotkey was unregistered while the key was down),
+/// a press more than `staleHold` seconds after the previous press counts as a new press.
+/// Key repeats come much faster than that, so a held key stays ignored.
 public struct LeaderDoubleTap: Sendable {
+    /// Seconds without any press after which a missing release is assumed.
+    public static let staleHold: TimeInterval = 2
+
     public var isEnabled: Bool
     public var window: TimeInterval
     public private(set) var isHeld = false
     private var firstPressAt: TimeInterval?
+    private var lastPressAt: TimeInterval?
 
     public init(isEnabled: Bool = true, window: TimeInterval = 0.3) {
         self.isEnabled = isEnabled
@@ -417,6 +425,10 @@ public struct LeaderDoubleTap: Sendable {
     /// `menuOpenAtRoot`: the leader menu is open with an empty path, before this press.
     /// `menuOpen`: the leader menu is open at all, before this press.
     public mutating func press(at time: TimeInterval, menuOpen: Bool, menuOpenAtRoot: Bool) -> LeaderPress {
+        defer { lastPressAt = time }
+        if isHeld, let last = lastPressAt, time - last > LeaderDoubleTap.staleHold || time < last {
+            isHeld = false
+        }
         guard !isHeld else { return .ignored }
         isHeld = true
         if isEnabled, menuOpen, menuOpenAtRoot, let first = firstPressAt, time >= first, time - first <= window {
