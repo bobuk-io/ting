@@ -23,6 +23,11 @@ let package = Package(
             path: "Sources/Ting",
             swiftSettings: [.swiftLanguageMode(.v5)]),
         .testTarget(
+            name: "TingServiceTests",
+            dependencies: ["Ting", "TingCore"],
+            path: "Tests/TingServiceTests",
+            swiftSettings: [.swiftLanguageMode(.v5)]),
+        .testTarget(
             name: "TingCoreTests",
             dependencies: ["TingCore"],
             path: "Tests/TingCoreTests",
