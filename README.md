@@ -16,8 +16,8 @@ from grime and sound-system culture: amber keycaps on graphite, `esc pull up`,
 Requires **macOS 14 or later**. Official releases are universal builds for
 **Apple Silicon and Intel**.
 
-[Release notes for Ting 0.3.1](docs/releases/v0.3.1.md): tighter selecta spacing
-when panel titles are hidden, and fewer technical notices in launcha.
+[Release notes for Ting 0.3.2](docs/releases/v0.3.2.md): launcha now indexes
+every app in its folders, without scan limits or limit notices.
 
 ## Install
 
