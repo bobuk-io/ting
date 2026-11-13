@@ -49,6 +49,46 @@ The menu shows the leader as a tuning-fork symbol; its tooltip names your config
 The menu appears on the display that contains the pointer, above full-screen
 apps and on every Space.
 
+## launcha (unreleased)
+
+> launcha is in development on `main` and is not part of a published release yet.
+
+The leader menu is called **selecta**. **launcha** is its search companion: type
+part of an app name and press `Return`.
+
+- **Open it:** press the leader twice at the top level of selecta. The first
+  press opens selecta at once, so sequences are never delayed; any key in
+  between cancels the double tap. The interval is 0.3 s by default (0.1–1 s).
+  You can also set a separate global hotkey (unset by default) or choose
+  **Open launcha** in the menu-bar menu.
+- **Search:** an empty field lists your apps, most-used first. Matching ignores
+  case and accents, understands word starts and initials (`vsc` → Visual Studio
+  Code) and text typed with the wrong layout (`ыфафкш` → Safari). Paste, editing
+  and input methods work as in any Mac text field.
+- **Keys:** `↑` `↓` choose, `Return` opens, `⌘Return` shows the item in Finder,
+  `Esc` closes. launcha also closes when you click elsewhere or switch Spaces.
+- **Apps:** from `/Applications`, `/System/Applications` and `~/Applications`.
+  launcha opens the exact app bundle it found; a running app comes to the front.
+  Ting scans these folders once at startup, again each time launcha opens and
+  every 15 seconds while it stays open, so new apps appear without a restart.
+- **Files:** only when no app matches, launcha asks Spotlight for files in your
+  home folder (not `~/Library`, hidden folders or app bundles) and opens a file
+  with its usual app.
+- **Desktop, Documents and Downloads** are not searched until you allow it, in
+  launcha or in Settings. macOS may then ask you to allow Ting to access each
+  folder. Desktop apps are listed after that. Until then launcha says that these
+  folders were skipped.
+- **Ranking:** Ting counts successful opens through selecta and launcha over the
+  last 7 days. Failed opens and Finder reveals do not count. Ting does not watch
+  apps you open in other ways.
+
+The usage history and the folder choice are stored apart from the config file,
+in `~/Library/Application Support/Ting/` (`launcha-history.json`,
+`launcha-consent.json`). With `TING_CONFIG` set, both sit next to that file
+instead, with the config file name in front: `TING_CONFIG=/tmp/ting-test.json`
+uses `/tmp/ting-test.json.launcha-history.json` and
+`/tmp/ting-test.json.launcha-consent.json`.
+
 ## Settings
 
 Choose **Settings…** in the menu-bar menu, or open Ting again from Finder or
@@ -58,6 +98,8 @@ Spotlight.
   delay, what an unknown key does, launch at login, the menu-bar icon, the
   "ting" sound and update checks. “Show panel title” controls the `Ting · selecta`
   title row (on by default); hiding it keeps the leader symbol and sequence visible.
+  The launcha section (unreleased) sets its hotkey, the leader double tap and its
+  interval, and access to Desktop, Documents and Downloads.
 - **Bindings:** one table of key sequences. Click the record button, type the
   keys and press **Done** (`Space` and `Return` are recorded as keys). Missing
   groups are created and empty groups are removed automatically. If a shorter
@@ -91,13 +133,19 @@ the file in your dotfiles if you like.
 - `leader` is a key name such as `home`, `f13` or `space`, optionally with
   modifiers: `option+shift+cmd+f`, `ctrl+space`.
 - Other settings: `unknownKey` (`shake` or `close`), `appearance` (`dark` or
-  `light`), `launchAtLogin`, `showMenuBarIcon`, `playSound`.
+  `light`), `launchAtLogin`, `showMenuBarIcon`, `showPanelHeader`, `playSound`.
+- `launcha` (unreleased): `{"hotkey": null, "doubleTap": true,
+  "doubleTapWindow": 0.3}`. `hotkey` uses the leader format and must differ
+  from the leader.
 
 ## Privacy and permissions
 
-Ting registers its leader with the standard macOS hotkey API. It does not ask for
-Accessibility or Input Monitoring permission and does not read keystrokes outside
-its own menu.
+Ting registers its leader (and the optional launcha hotkey) with the standard
+macOS hotkey API. It does not ask for Accessibility or Input Monitoring
+permission and does not read keystrokes outside its own panels. launcha reads
+the app folders at startup, when it opens and every 15 seconds while it is
+open. It asks Spotlight for file names only for what you type, and only when no
+app matches. It keeps its launch counts on your Mac.
 
 Ting has no accounts, analytics or servers. It opens the apps and URLs you
 configure. Sparkle checks this repository's public release feed for updates and

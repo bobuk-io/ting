@@ -286,6 +286,32 @@ import Testing
         let r16 = tap.press(at: 0.25, menuOpen: true, menuOpenAtRoot: true)
         #expect(r16 == .ignored)
     }
+    @Test func heldRepeatAfterDoubleTapIsIgnoredWithMenuClosed() {
+        // The double tap closed the menu and opened launcha. A repeat of the held leader
+        // comes with the menu closed and must stay ignored, so launcha stays open.
+        var tap = LeaderDoubleTap()
+        #expect(tap.press(at: 0, menuOpen: false, menuOpenAtRoot: false) == .single)
+        tap.release()
+        #expect(tap.press(at: 0.2, menuOpen: true, menuOpenAtRoot: true) == .double)
+        #expect(tap.press(at: 0.25, menuOpen: false, menuOpenAtRoot: false) == .ignored)
+        #expect(tap.press(at: 0.3, menuOpen: false, menuOpenAtRoot: false) == .ignored)
+        tap.release()
+        #expect(tap.press(at: 1, menuOpen: false, menuOpenAtRoot: false) == .single)
+    }
+    @Test func lostReleaseRecoversAfterStaleHold() {
+        var tap = LeaderDoubleTap()
+        #expect(tap.press(at: 0, menuOpen: false, menuOpenAtRoot: false) == .single)
+        // Repeats keep the hold alive, even for a long time.
+        for step in 1...40 {
+            #expect(tap.press(at: Double(step) * 0.1, menuOpen: true, menuOpenAtRoot: true) == .ignored)
+        }
+        // No release and no press for longer than staleHold: the release was lost.
+        let late = 4 + LeaderDoubleTap.staleHold + 0.1
+        #expect(tap.press(at: late, menuOpen: false, menuOpenAtRoot: false) == .single)
+        #expect(tap.isHeld)
+        tap.release()
+        #expect(tap.press(at: late + 0.1, menuOpen: true, menuOpenAtRoot: true) == .double)
+    }
     @Test func sequenceInputCancels() {
         var tap = LeaderDoubleTap()
         var m = LeaderMachine(items: [.group("w", "Web", [.url("g", "GitHub", "https://github.com")]), .app("x", "X", "com.example.X")])

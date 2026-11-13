@@ -7,6 +7,8 @@ import TingCore
 final class LeaderPanel: NSPanel {
     /// Every keyDown goes here instead of the responder chain.
     var onKeyDown: ((NSEvent) -> Void)?
+    /// Key releases, a second source for the leader release next to Carbon.
+    var onKeyUp: ((NSEvent) -> Void)?
 
     init() {
         super.init(contentRect: NSRect(x: 0, y: 0, width: 460, height: 640),
@@ -31,6 +33,7 @@ final class LeaderPanel: NSPanel {
             onKeyDown?(event)
             return
         }
+        if event.type == .keyUp { onKeyUp?(event) }
         super.sendEvent(event)
     }
 
@@ -57,8 +60,12 @@ final class LeaderController: NSObject, NSWindowDelegate {
     let session = LeaderSession()
     /// Called after the panel closed for an action.
     var onRun: ((Item) -> Void)?
+    /// A root double tap of the leader: the menu is closed, open launcha.
+    var onDoubleTap: (() -> Void)?
 
     private var machine = LeaderMachine(items: [])
+    private var doubleTap = LeaderDoubleTap()
+    private var leaderKeyCode: UInt16?
     private var showDelay: TimeInterval = 0.25
     private var panel: LeaderPanel?
     private var reveal: DispatchWorkItem?
@@ -70,6 +77,9 @@ final class LeaderController: NSObject, NSWindowDelegate {
         machine.unknownKey = config.unknownKey
         showDelay = config.showDelay
         session.leader = config.leader?.display ?? ""
+        doubleTap.isEnabled = config.launcha.doubleTap && config.leader != nil
+        doubleTap.window = config.launcha.doubleTapWindow
+        if case .combo(let keyCode, _)? = config.leader { leaderKeyCode = keyCode } else { leaderKeyCode = nil }
         session.showPanelHeader = config.showPanelHeader
         if machine.isOpen {
             session.path = machine.path
@@ -77,12 +87,33 @@ final class LeaderController: NSObject, NSWindowDelegate {
         }
     }
 
-    func leaderPressed() {
-        apply(machine.handle(.leader))
+    /// The leader hotkey went down. `time` is any monotonic clock in seconds.
+    /// The first press acts at once; only the second press of a root double tap opens launcha.
+    /// `accepted` runs before the press acts, and not at all for an ignored repeat.
+    func leaderPressed(at time: TimeInterval = ProcessInfo.processInfo.systemUptime, accepted: () -> Void = {}) {
+        let press = doubleTap.press(at: time, machine: machine)
+        guard press != .ignored else { return }
+        accepted()
+        switch press {
+        case .ignored:
+            return
+        case .double:
+            machine.reset()
+            hide()
+            onDoubleTap?()
+        case .single:
+            apply(machine.handle(.leader))
+        }
+    }
+
+    /// The leader hotkey went up (from Carbon, or the panel saw the key up).
+    func leaderReleased() {
+        doubleTap.release()
     }
 
     func close() {
         machine.reset()
+        doubleTap.reset()
         hide()
     }
 
@@ -90,6 +121,8 @@ final class LeaderController: NSObject, NSWindowDelegate {
 
     private func handleKeyDown(_ event: NSEvent) {
         guard machine.isOpen, !event.isARepeat else { return }
+        // Any key in between: the next leader press is not a double tap.
+        doubleTap.sequenceInput()
         switch event.keyCode {
         case 53:
             apply(machine.handle(.escape))
@@ -109,6 +142,7 @@ final class LeaderController: NSObject, NSWindowDelegate {
 
     private func select(_ key: String) {
         guard machine.isOpen else { return }
+        doubleTap.sequenceInput()
         apply(machine.handle(.key(key)))
     }
 
@@ -125,8 +159,9 @@ final class LeaderController: NSObject, NSWindowDelegate {
             hide()
             onRun?(item)
         case .reject(_, let closed):
-            if closed { hide() } else { shake() }
+            if closed { doubleTap.reset(); hide() } else { shake() }
         case .close:
+            doubleTap.reset()
             hide()
         }
     }
@@ -171,6 +206,10 @@ final class LeaderController: NSObject, NSWindowDelegate {
         let panel = LeaderPanel()
         panel.delegate = self
         panel.onKeyDown = { [weak self] event in self?.handleKeyDown(event) }
+        panel.onKeyUp = { [weak self] event in
+            guard let self, event.keyCode == self.leaderKeyCode else { return }
+            self.leaderReleased()
+        }
         let view = LeaderMenuView(session: session,
                                   onSelect: { [weak self] key in self?.select(key) },
                                   onDismiss: { [weak self] in self?.close() })

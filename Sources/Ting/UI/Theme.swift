@@ -83,9 +83,13 @@ struct TingMark: View {
 struct LeaderToken: View {
     let leader: String
     var taps = 1
+    /// The dashed key outline. Off inside the launcha search input.
+    var boxed = true
+    /// Replaces the default tooltip and spoken label, e.g. to name the launcha hotkey too.
+    var description: String?
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: taps > 1 ? 1 : 4) {
             ForEach(0..<taps, id: \.self) { _ in
                 Image(nsImage: StatusIcon.image)
                     .resizable()
@@ -94,13 +98,25 @@ struct LeaderToken: View {
             }
         }
         .foregroundStyle(Color.tingMuted)
-        .padding(.horizontal, 6)
-        .frame(minWidth: 30, minHeight: 30)
-        .overlay(RoundedRectangle(cornerRadius: 7)
-            .strokeBorder(Color.tingMuted.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+        .padding(.horizontal, boxed ? 6 : 0)
+        .frame(minWidth: boxed ? 30 : nil, minHeight: boxed ? 30 : nil)
+        .overlay {
+            if boxed {
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(Color.tingMuted.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+            }
+        }
+        .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(taps == 1 ? "Leader: \(leader)" : "Leader: \(leader), pressed twice")
-        .help(taps == 1 ? leader : "\(leader), pressed twice")
+        .accessibilityLabel(Self.label(leader: leader, taps: taps, description: description))
+        .help(Self.label(leader: leader, taps: taps, description: description))
+    }
+
+    /// Tooltip and spoken label: names the real key, and a double tap.
+    static func label(leader: String, taps: Int, description: String?) -> String {
+        if let description { return description }
+        let key = leader.isEmpty ? "Leader key" : "Leader key \(leader)"
+        return taps == 1 ? key : "\(key), pressed twice"
     }
 }
 

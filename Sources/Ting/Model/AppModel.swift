@@ -16,19 +16,35 @@ final class AppModel {
     private(set) var configError: String?
     private(set) var issues: [ConfigIssue] = []
     private(set) var hotkeyStatus: HotkeyService.Status = .inactive
+    private(set) var launchaHotkeyStatus: HotkeyService.Status = .inactive
     private(set) var loginItemError: String?
     /// Session-only: the leader is off while paused.
     var isPaused = false {
         didSet { applyHotkey() }
     }
-    /// The leader is off while a new one is being recorded, so pressing the old one records it.
-    private(set) var isRecordingLeader = false
+    /// Both hotkeys are off while a new one is being recorded, so pressing an existing one records it.
+    private(set) var isRecordingHotkey = false
+    /// launcha may search Desktop, Documents and Downloads. Stored apart from the config.
+    var protectedFoldersAllowed: Bool { launchaModel.protectedFolders == .allowed }
+    var launchaConsentError: String? { launchaModel.consentError }
 
     @ObservationIgnored let store = ConfigStore()
     @ObservationIgnored private let hotkeys = HotkeyService()
     @ObservationIgnored private let leader = LeaderController()
-    @ObservationIgnored private let runner = ActionRunner()
+    @ObservationIgnored private let runner: ActionRunner
     @ObservationIgnored private let toast = ToastController()
+    @ObservationIgnored private let launchaModel: LaunchaModel
+    @ObservationIgnored private let launcha: LaunchaController
+    /// Held-key guard for the launcha hotkey: a repeat while held never toggles twice.
+    @ObservationIgnored private var launchaKey = LeaderDoubleTap(isEnabled: false)
+    @ObservationIgnored private lazy var recordingGate = HotkeyRecordingGate { [weak self] in self?.setRecordingHotkey($0) }
+
+    init() {
+        let runner = ActionRunner()
+        self.runner = runner
+        launchaModel = LaunchaModel(opener: runner, historyStore: LaunchaHistoryStore(), consent: LaunchaConsentStore())
+        launcha = LaunchaController(model: launchaModel)
+    }
 
     var leaderDisplay: String { config.leader?.display ?? "Not set" }
     var isLeaderActive: Bool { hotkeyStatus == .active && !isPaused }
@@ -40,12 +56,38 @@ final class AppModel {
         }
     }
 
+    var launchaHotkeyDisplay: String { config.launcha.hotkey?.display ?? "Not set" }
+
+    /// Why the launcha hotkey does not work: invalid, the same as the leader, or taken.
+    var launchaHotkeyProblem: String? {
+        if let issue = issues.first(where: { $0.kind == .invalidLaunchaHotkey || $0.kind == .launchaHotkeyConflict }) {
+            return issue.message
+        }
+        switch launchaHotkeyStatus {
+        case .failed(let reason): return reason
+        case .inactive, .active: return nil
+        }
+    }
+
     // MARK: Lifecycle
 
     func start() {
-        hotkeys.onStatusChange = { [weak self] status in self?.hotkeyStatus = status }
-        hotkeys.onLeader = { [weak self] in self?.leader.leaderPressed() }
+        hotkeys.onStatusChange = { [weak self] slot, status in
+            switch slot {
+            case .leader: self?.hotkeyStatus = status
+            case .launcha: self?.launchaHotkeyStatus = status
+            }
+        }
+        hotkeys.onPress = { [weak self] slot, time in self?.hotkeyPressed(slot, at: time) }
+        hotkeys.onRelease = { [weak self] slot in
+            switch slot {
+            case .leader: self?.leader.leaderReleased()
+            case .launcha: self?.launchaKey.release()
+            }
+        }
         leader.onRun = { [weak self] item in self?.run(item) }
+        leader.onDoubleTap = { [weak self] in self?.launcha.open() }
+        launchaModel.onWillOpen = { [weak self] in self?.playSound() }
         runner.onError = { [weak self] message in self?.toast.show(message) }
 
         if !store.fileExists {
@@ -58,6 +100,7 @@ final class AppModel {
         }
         reload()
         store.watch { [weak self] in self?.reload() }
+        launchaModel.prewarm()
     }
 
     func reload() {
@@ -95,10 +138,39 @@ final class AppModel {
         update { $0.leader = hotkey }
     }
 
-    func setRecordingLeader(_ recording: Bool) {
-        guard recording != isRecordingLeader else { return }
-        isRecordingLeader = recording
+    /// nil removes the separate launcha hotkey.
+    func setLaunchaHotkey(_ hotkey: Hotkey?) {
+        update { $0.launcha.hotkey = hotkey }
+    }
+
+    /// Turns both hotkeys off until `owner` ends recording. A new recording cancels the
+    /// previous one; the hotkeys stay off between them.
+    func beginHotkeyRecording(_ owner: HotkeyRecordingOwner) {
+        recordingGate.begin(owner)
+    }
+
+    /// Turns the hotkeys back on only if `owner` is the current recording.
+    func endHotkeyRecording(_ owner: HotkeyRecordingOwner) {
+        recordingGate.end(owner)
+    }
+
+    private func setRecordingHotkey(_ recording: Bool) {
+        guard recording != isRecordingHotkey else { return }
+        isRecordingHotkey = recording
         applyHotkey()
+    }
+
+    // MARK: launcha
+
+    func openLauncha() {
+        guard !isPaused, !isRecordingHotkey else { return }
+        leader.close()
+        launcha.open()
+    }
+
+    /// Call only after the user read what this allows and which macOS prompts may follow.
+    func setProtectedFoldersAllowed(_ allowed: Bool) {
+        if allowed { launchaModel.allowProtectedFolders() } else { launchaModel.revokeProtectedFolders() }
     }
 
     func replaceConfig(_ imported: Config) {
@@ -157,6 +229,7 @@ final class AppModel {
         config = next
         issues = ConfigValidator.validate(next)
         leader.configure(next)
+        launcha.configure(next)
         next.appearance.apply()
         applyHotkey()
         if next.launchAtLogin != previous.launchAtLogin {
@@ -165,17 +238,52 @@ final class AppModel {
     }
 
     private func applyHotkey() {
-        if isPaused || isRecordingLeader {
+        if isPaused || isRecordingHotkey {
             leader.close()
-            hotkeys.activate(nil)
+            launcha.close()
+            hotkeys.activate(nil, for: .launcha)
+            hotkeys.activate(nil, for: .leader)
         } else {
-            hotkeys.activate(config.leader)
+            // The leader wins a conflict: free the launcha slot first.
+            let separate = config.launcha.hotkey.flatMap { $0.isValid && $0 != config.leader ? $0 : nil }
+            if hotkeys.hotkey(.launcha) != separate { hotkeys.activate(nil, for: .launcha) }
+            hotkeys.activate(config.leader, for: .leader)
+            hotkeys.activate(separate, for: .launcha)
         }
-        hotkeyStatus = hotkeys.status
+        hotkeyStatus = hotkeys.status(.leader)
+        launchaHotkeyStatus = hotkeys.status(.launcha)
     }
 
-    private func run(_ item: Item) {
+    private func hotkeyPressed(_ slot: HotkeyService.Slot, at time: TimeInterval) {
+        switch slot {
+        case .leader:
+            // The leader switches from launcha back to selecta. A repeat of a held leader
+            // is ignored and leaves launcha open.
+            leader.leaderPressed(at: time) { [launcha] in
+                if launcha.isOpen { launcha.close() }
+            }
+        case .launcha:
+            guard launchaKey.press(at: time, menuOpen: false, menuOpenAtRoot: false) != .ignored else { return }
+            if leader.isOpen { leader.close() }
+            launcha.toggle()
+        }
+    }
+
+    private func playSound() {
         if config.playSound { NSSound(named: "Tink")?.play() }
-        runner.run(item)
+    }
+
+    /// Opens a selecta binding and counts a successful launch once.
+    private func run(_ item: Item) {
+        playSound()
+        let id: String? = switch item.action {
+        case .app(let bundleID): LaunchaCandidate.app(bundleID: bundleID, name: "").id
+        case .url(let url): LaunchaCandidate.url(url, name: "").id
+        case .group: nil
+        }
+        Task {
+            let outcome = await runner.run(item)
+            if let id { await launchaModel.record(outcome, id: id) }
+        }
     }
 }
