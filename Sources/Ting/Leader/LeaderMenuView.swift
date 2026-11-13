@@ -65,7 +65,9 @@ private struct SoundList: View {
         }
         .id(session.generation)
         .foregroundStyle(Color.tingInk)
-        .padding(20)
+        .padding(.horizontal, 20)
+        .padding(.top, session.showPanelHeader ? 20 : 4)
+        .padding(.bottom, 20)
         .frame(width: 340)
         .background(Color.soundPanel, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(alignment: .top) {
