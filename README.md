@@ -28,6 +28,10 @@ stapled notarization ticket. Each release includes a SHA-256 checksum. Ting
 updates itself with [Sparkle](https://sparkle-project.org) from this repository's
 releases; you can turn automatic checks off in Settings.
 
+To upgrade an installed copy, choose **Check for Updates…** in the menu-bar
+menu. You can also quit Ting and replace `/Applications/Ting.app` with the new
+copy from the ZIP, then open it again. Your settings and bindings are kept.
+
 ## Use
 
 - **Leader:** any key that is not a modifier, alone or with modifiers — for
@@ -49,9 +53,7 @@ The menu shows the leader as a tuning-fork symbol; its tooltip names your config
 The menu appears on the display that contains the pointer, above full-screen
 apps and on every Space.
 
-## launcha (unreleased)
-
-> launcha is in development on `main` and is not part of a published release yet.
+## launcha
 
 The leader menu is called **selecta**. **launcha** is its search companion: type
 part of an app name and press `Return`.
@@ -80,7 +82,8 @@ part of an app name and press `Return`.
   folder. Desktop apps are listed after that. Until then launcha says that these
   folders were skipped.
 - **Ranking:** Ting counts successful opens through selecta and launcha over the
-  last 7 days. Failed opens and Finder reveals do not count. Ting does not watch
+  last 7 days. Matches rank by that count, then most recent launch, match quality
+  and name. Failed opens and Finder reveals do not count. Ting does not watch
   apps you open in other ways.
 
 The usage history and the folder choice are stored apart from the config file,
@@ -98,8 +101,9 @@ Spotlight.
 - **General:** light or dark theme (dark by default), the leader key, the menu
   delay, what an unknown key does, launch at login, the menu-bar icon, the
   "ting" sound and update checks. “Show panel title” controls the `Ting · selecta`
-  title row (on by default); hiding it keeps the leader symbol and sequence visible.
-  The launcha section (unreleased) sets its hotkey, the leader double tap and its
+  and `Ting · launcha` title rows (on by default); hiding them keeps the leader
+  symbol, sequence and search input visible.
+  The launcha section sets its hotkey, the leader double tap and its
   interval, and access to Desktop, Documents and Downloads.
 - **Bindings:** one table of key sequences. Click the record button, type the
   keys and press **Done** (`Space` and `Return` are recorded as keys). Missing
@@ -135,7 +139,7 @@ the file in your dotfiles if you like.
   modifiers: `option+shift+cmd+f`, `ctrl+space`.
 - Other settings: `unknownKey` (`shake` or `close`), `appearance` (`dark` or
   `light`), `launchAtLogin`, `showMenuBarIcon`, `showPanelHeader`, `playSound`.
-- `launcha` (unreleased): `{"hotkey": null, "doubleTap": true,
+- `launcha`: `{"hotkey": null, "doubleTap": true,
   "doubleTapWindow": 0.3}`. `hotkey` uses the leader format and must differ
   from the leader.
 
@@ -144,9 +148,10 @@ the file in your dotfiles if you like.
 Ting registers its leader (and the optional launcha hotkey) with the standard
 macOS hotkey API. It does not ask for Accessibility or Input Monitoring
 permission and does not read keystrokes outside its own panels. launcha reads
-the app folders at startup and when it opens, then at most once per minute
-while it stays open. It asks Spotlight for file names only for what you type, and only when no
-app matches. It keeps its launch counts on your Mac.
+the app folders at startup and each time it opens. While it stays open,
+background scans run at most once per minute; this limit does not apply to
+startup or panel-opening scans. It asks Spotlight for file names only for what
+you type, and only when no app matches. It keeps its launch counts on your Mac.
 
 Ting has no accounts, analytics or servers. It opens the apps and URLs you
 configure. Sparkle checks this repository's public release feed for updates and
