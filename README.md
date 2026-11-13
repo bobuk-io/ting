@@ -63,14 +63,15 @@ part of an app name and press `Return`.
   **Open launcha** in the menu-bar menu.
 - **Search:** an empty field lists your apps, most-used first. Matching ignores
   case and accents, understands word starts and initials (`vsc` → Visual Studio
-  Code) and text typed with the wrong layout (`ыфафкш` → Safari). Paste, editing
-  and input methods work as in any Mac text field.
+  Code) and text typed with the wrong layout (`ыфафкш` → Safari). The search uses
+  a native Mac text field for paste, editing and input methods.
 - **Keys:** `↑` `↓` choose, `Return` opens, `⌘Return` shows the item in Finder,
   `Esc` closes. launcha also closes when you click elsewhere or switch Spaces.
 - **Apps:** from `/Applications`, `/System/Applications` and `~/Applications`.
   launcha opens the exact app bundle it found; a running app comes to the front.
-  Ting scans these folders once at startup, again each time launcha opens and
-  every 15 seconds while it stays open, so new apps appear without a restart.
+  Ting scans these folders at startup and each time launcha opens. While the
+  panel stays open, it checks every 15 seconds whether a refresh is due; these
+  background scans run at most once per minute.
 - **Files:** only when no app matches, launcha asks Spotlight for files in your
   home folder (not `~/Library`, hidden folders or app bundles) and opens a file
   with its usual app.
@@ -108,7 +109,7 @@ Spotlight.
 
 ## Configuration file
 
-Everything lives in one JSON file, `~/.config/ting/config.json`. Ting creates a
+Settings and bindings live in `~/.config/ting/config.json`. Ting creates a
 sample on first launch, reloads the file when it changes and keeps the last good
 settings if the file has an error; the error appears in the menu-bar menu. Keep
 the file in your dotfiles if you like.
@@ -143,8 +144,8 @@ the file in your dotfiles if you like.
 Ting registers its leader (and the optional launcha hotkey) with the standard
 macOS hotkey API. It does not ask for Accessibility or Input Monitoring
 permission and does not read keystrokes outside its own panels. launcha reads
-the app folders at startup, when it opens and every 15 seconds while it is
-open. It asks Spotlight for file names only for what you type, and only when no
+the app folders at startup and when it opens, then at most once per minute
+while it stays open. It asks Spotlight for file names only for what you type, and only when no
 app matches. It keeps its launch counts on your Mac.
 
 Ting has no accounts, analytics or servers. It opens the apps and URLs you
