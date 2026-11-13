@@ -89,8 +89,12 @@ final class LeaderController: NSObject, NSWindowDelegate {
 
     /// The leader hotkey went down. `time` is any monotonic clock in seconds.
     /// The first press acts at once; only the second press of a root double tap opens launcha.
-    func leaderPressed(at time: TimeInterval = ProcessInfo.processInfo.systemUptime) {
-        switch doubleTap.press(at: time, machine: machine) {
+    /// `accepted` runs before the press acts, and not at all for an ignored repeat.
+    func leaderPressed(at time: TimeInterval = ProcessInfo.processInfo.systemUptime, accepted: () -> Void = {}) {
+        let press = doubleTap.press(at: time, machine: machine)
+        guard press != .ignored else { return }
+        accepted()
+        switch press {
         case .ignored:
             return
         case .double:

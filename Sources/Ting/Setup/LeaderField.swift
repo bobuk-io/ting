@@ -5,7 +5,7 @@ import TingCore
 
 @MainActor
 @Observable
-final class HotkeyRecording {
+final class HotkeyRecording: HotkeyRecordingOwner {
     enum Target { case leader, launcha }
 
     private(set) var isRecording = false
@@ -17,12 +17,15 @@ final class HotkeyRecording {
     @ObservationIgnored private var target = Target.leader
 
     func start(model: AppModel, target: Target = .leader) {
+        // Starting again first stops this recording's monitor and observer.
+        stopListening()
         self.model = model
         self.target = target
         isRecording = true
         preview = ""
         warning = nil
-        model.setRecordingHotkey(true)
+        // Cancels any other recording and keeps the hotkeys off until this one ends.
+        model.beginHotkeyRecording(self)
         monitor.start { [weak self] event in
             guard let self else { return event }
             return self.handle(event)
@@ -38,10 +41,14 @@ final class HotkeyRecording {
         guard isRecording else { return }
         isRecording = false
         preview = ""
+        stopListening()
+        model?.endHotkeyRecording(self)
+    }
+
+    private func stopListening() {
         monitor.stop()
         if let resignObserver { NotificationCenter.default.removeObserver(resignObserver) }
         resignObserver = nil
-        model?.setRecordingHotkey(false)
     }
 
     private func handle(_ event: NSEvent) -> NSEvent? {

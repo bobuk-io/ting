@@ -27,19 +27,31 @@ final class LaunchaPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    /// What the panel does with a ⌘ key equivalent.
+    enum KeyEquivalentRoute: Equatable {
+        /// Not a ⌘ shortcut, or text navigation and deletion: the text editor handles it.
+        case editor
+        /// ⌘↩: show the selected result in Finder.
+        case reveal
+        /// A text command sent to the field through the responder chain.
+        case action(Selector)
+        /// Any other ⌘ shortcut, for example ⌘Q: ignored, so it never reaches Ting's menu.
+        case swallow
+    }
+
+    /// Arrow keys, ⌫ and ⌦: ⌘ moves or deletes to the line edge, also with ⇧ or ⌥.
+    private static let editingKeyCodes: Set<UInt16> = [51, 117, 123, 124, 125, 126]
+
     /// Ting has no Edit menu while it is not the active app, so text shortcuts are sent
     /// to the field here. Keys are matched by the Latin layout, so ⌘V also works with
-    /// Russian or Ukrainian input. Other ⌘ shortcuts are swallowed: ⌘Q must not quit Ting.
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.type == .keyDown else { return super.performKeyEquivalent(with: event) }
-        let flags = event.modifierFlags.intersection([.command, .shift, .option, .control])
-        guard flags.contains(.command) else { return super.performKeyEquivalent(with: event) }
-        let composing = (firstResponder as? NSTextView)?.hasMarkedText() == true
-        if event.keyCode == 36 || event.keyCode == 76 {
-            if !composing, flags == .command { onReveal?() }
-            return true
-        }
-        let action: String? = switch (KeyTranslator.latin(event.keyCode) ?? "", flags) {
+    /// Russian or Ukrainian input. ⌘ with arrows, ⌫ or ⌦ goes to the text editor.
+    /// Other ⌘ shortcuts are swallowed: ⌘Q must not quit Ting.
+    static func route(keyCode: UInt16, latin: String?, flags: NSEvent.ModifierFlags) -> KeyEquivalentRoute {
+        let flags = flags.intersection([.command, .shift, .option, .control])
+        guard flags.contains(.command) else { return .editor }
+        if editingKeyCodes.contains(keyCode) { return .editor }
+        if keyCode == 36 || keyCode == 76 { return flags == .command ? .reveal : .swallow }
+        let action: String? = switch (latin ?? "", flags) {
         case ("x", .command): "cut:"
         case ("c", .command): "copy:"
         case ("v", .command): "paste:"
@@ -48,8 +60,27 @@ final class LaunchaPanel: NSPanel {
         case ("z", [.command, .shift]): "redo:"
         default: nil
         }
-        if let action { NSApp.sendAction(Selector(action), to: nil, from: self) }
-        return true
+        return action.map { .action(Selector($0)) } ?? .swallow
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.type == .keyDown else { return super.performKeyEquivalent(with: event) }
+        switch Self.route(keyCode: event.keyCode, latin: KeyTranslator.latin(event.keyCode), flags: event.modifierFlags) {
+        case .editor:
+            // Text navigation returns false at once: the event then reaches the field's
+            // `keyDown`. Other keys keep the default window handling.
+            if event.modifierFlags.contains(.command) { return false }
+            return super.performKeyEquivalent(with: event)
+        case .reveal:
+            let composing = (firstResponder as? NSTextView)?.hasMarkedText() == true
+            if !composing { onReveal?() }
+            return true
+        case .action(let selector):
+            NSApp.sendAction(selector, to: nil, from: self)
+            return true
+        case .swallow:
+            return true
+        }
     }
 }
 
@@ -59,7 +90,7 @@ final class LaunchaPanel: NSPanel {
 final class LaunchaChrome {
     var showHeader = true
     /// Tooltip and spoken label of the double tuning fork: the real keys that open launcha.
-    var tokenDescription = "launcha"
+    var tokenDescription = "Open launcha"
     var leader = ""
     var maxListHeight: CGFloat = 360
     /// Bumped on every open to move focus into the search field.
@@ -95,10 +126,15 @@ final class LaunchaController: NSObject, NSWindowDelegate {
     func configure(_ config: Config) {
         chrome.showHeader = config.showPanelHeader
         chrome.leader = config.leader?.display ?? ""
+        chrome.tokenDescription = Self.tokenDescription(config)
+    }
+
+    /// The real keys that open launcha, e.g. "Open launcha: ⌥Space pressed twice, or ⌘K".
+    static func tokenDescription(_ config: Config) -> String {
         var ways: [String] = []
         if config.launcha.doubleTap, let leader = config.leader { ways.append("\(leader.display) pressed twice") }
         if let hotkey = config.launcha.hotkey, hotkey.isValid, hotkey != config.leader { ways.append(hotkey.display) }
-        chrome.tokenDescription = ways.isEmpty ? "launcha" : "launcha: " + ways.joined(separator: " or ")
+        return ways.isEmpty ? "Open launcha" : "Open launcha: " + ways.joined(separator: ", or ")
     }
 
     func toggle() {

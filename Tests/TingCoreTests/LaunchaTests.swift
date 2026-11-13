@@ -286,6 +286,18 @@ import Testing
         let r16 = tap.press(at: 0.25, menuOpen: true, menuOpenAtRoot: true)
         #expect(r16 == .ignored)
     }
+    @Test func heldRepeatAfterDoubleTapIsIgnoredWithMenuClosed() {
+        // The double tap closed the menu and opened launcha. A repeat of the held leader
+        // comes with the menu closed and must stay ignored, so launcha stays open.
+        var tap = LeaderDoubleTap()
+        #expect(tap.press(at: 0, menuOpen: false, menuOpenAtRoot: false) == .single)
+        tap.release()
+        #expect(tap.press(at: 0.2, menuOpen: true, menuOpenAtRoot: true) == .double)
+        #expect(tap.press(at: 0.25, menuOpen: false, menuOpenAtRoot: false) == .ignored)
+        #expect(tap.press(at: 0.3, menuOpen: false, menuOpenAtRoot: false) == .ignored)
+        tap.release()
+        #expect(tap.press(at: 1, menuOpen: false, menuOpenAtRoot: false) == .single)
+    }
     @Test func lostReleaseRecoversAfterStaleHold() {
         var tap = LeaderDoubleTap()
         #expect(tap.press(at: 0, menuOpen: false, menuOpenAtRoot: false) == .single)

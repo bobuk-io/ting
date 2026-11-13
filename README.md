@@ -69,6 +69,8 @@ part of an app name and press `Return`.
   `Esc` closes. launcha also closes when you click elsewhere or switch Spaces.
 - **Apps:** from `/Applications`, `/System/Applications` and `~/Applications`.
   launcha opens the exact app bundle it found; a running app comes to the front.
+  Ting scans these folders once at startup, again each time launcha opens and
+  every 15 seconds while it stays open, so new apps appear without a restart.
 - **Files:** only when no app matches, launcha asks Spotlight for files in your
   home folder (not `~/Library`, hidden folders or app bundles) and opens a file
   with its usual app.
@@ -83,7 +85,9 @@ part of an app name and press `Return`.
 The usage history and the folder choice are stored apart from the config file,
 in `~/Library/Application Support/Ting/` (`launcha-history.json`,
 `launcha-consent.json`). With `TING_CONFIG` set, both sit next to that file
-instead.
+instead, with the config file name in front: `TING_CONFIG=/tmp/ting-test.json`
+uses `/tmp/ting-test.json.launcha-history.json` and
+`/tmp/ting-test.json.launcha-consent.json`.
 
 ## Settings
 
@@ -139,8 +143,9 @@ the file in your dotfiles if you like.
 Ting registers its leader (and the optional launcha hotkey) with the standard
 macOS hotkey API. It does not ask for Accessibility or Input Monitoring
 permission and does not read keystrokes outside its own panels. launcha reads
-app folders and asks Spotlight for file names only while you search; it keeps
-its launch counts on your Mac.
+the app folders at startup, when it opens and every 15 seconds while it is
+open. It asks Spotlight for file names only for what you type, and only when no
+app matches. It keeps its launch counts on your Mac.
 
 Ting has no accounts, analytics or servers. It opens the apps and URLs you
 configure. Sparkle checks this repository's public release feed for updates and

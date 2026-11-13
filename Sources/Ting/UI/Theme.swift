@@ -108,13 +108,15 @@ struct LeaderToken: View {
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Leader: " + text)
-        .help(text)
+        .accessibilityLabel(Self.label(leader: leader, taps: taps, description: description))
+        .help(Self.label(leader: leader, taps: taps, description: description))
     }
 
-    private var text: String {
+    /// Tooltip and spoken label: names the real key, and a double tap.
+    static func label(leader: String, taps: Int, description: String?) -> String {
         if let description { return description }
-        return taps == 1 ? leader : "\(leader), pressed twice"
+        let key = leader.isEmpty ? "Leader key" : "Leader key \(leader)"
+        return taps == 1 ? key : "\(key), pressed twice"
     }
 }
 

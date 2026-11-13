@@ -37,6 +37,7 @@ final class AppModel {
     @ObservationIgnored private let launcha: LaunchaController
     /// Held-key guard for the launcha hotkey: a repeat while held never toggles twice.
     @ObservationIgnored private var launchaKey = LeaderDoubleTap(isEnabled: false)
+    @ObservationIgnored private lazy var recordingGate = HotkeyRecordingGate { [weak self] in self?.setRecordingHotkey($0) }
 
     init() {
         let runner = ActionRunner()
@@ -142,7 +143,18 @@ final class AppModel {
         update { $0.launcha.hotkey = hotkey }
     }
 
-    func setRecordingHotkey(_ recording: Bool) {
+    /// Turns both hotkeys off until `owner` ends recording. A new recording cancels the
+    /// previous one; the hotkeys stay off between them.
+    func beginHotkeyRecording(_ owner: HotkeyRecordingOwner) {
+        recordingGate.begin(owner)
+    }
+
+    /// Turns the hotkeys back on only if `owner` is the current recording.
+    func endHotkeyRecording(_ owner: HotkeyRecordingOwner) {
+        recordingGate.end(owner)
+    }
+
+    private func setRecordingHotkey(_ recording: Bool) {
         guard recording != isRecordingHotkey else { return }
         isRecordingHotkey = recording
         applyHotkey()
@@ -245,9 +257,11 @@ final class AppModel {
     private func hotkeyPressed(_ slot: HotkeyService.Slot, at time: TimeInterval) {
         switch slot {
         case .leader:
-            // The leader switches from launcha back to selecta.
-            if launcha.isOpen { launcha.close() }
-            leader.leaderPressed(at: time)
+            // The leader switches from launcha back to selecta. A repeat of a held leader
+            // is ignored and leaves launcha open.
+            leader.leaderPressed(at: time) { [launcha] in
+                if launcha.isOpen { launcha.close() }
+            }
         case .launcha:
             guard launchaKey.press(at: time, menuOpen: false, menuOpenAtRoot: false) != .ignored else { return }
             if leader.isOpen { leader.close() }
