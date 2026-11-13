@@ -85,9 +85,52 @@ public enum Appearance: String, Codable, Sendable, CaseIterable {
     case dark, light
 }
 
+/// Launcha settings: the name search panel.
+/// JSON: {"hotkey": Hotkey string or null, "doubleTap": Bool, "doubleTapWindow": seconds}.
+/// Every key is optional when decoding; a missing key takes the default below.
+public struct LaunchaSettings: Equatable, Sendable, Codable {
+    /// Allowed range of `doubleTapWindow`. Decoding clamps to it.
+    public static let doubleTapWindowRange: ClosedRange<Double> = 0.1...1.0
+
+    /// Separate global hotkey for launcha. nil (default) means no separate hotkey.
+    public var hotkey: Hotkey? = nil
+    /// A double tap of the leader opens launcha. On by default.
+    public var doubleTap: Bool = true
+    /// Maximum seconds between the two leader presses of a double tap.
+    public var doubleTapWindow: Double = 0.3
+
+    public init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case hotkey, doubleTap, doubleTapWindow
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let defaults = LaunchaSettings()
+        hotkey = try container.decodeIfPresent(Hotkey.self, forKey: .hotkey)
+        doubleTap = try container.decodeIfPresent(Bool.self, forKey: .doubleTap) ?? defaults.doubleTap
+        let window = try container.decodeIfPresent(Double.self, forKey: .doubleTapWindow) ?? defaults.doubleTapWindow
+        let range = LaunchaSettings.doubleTapWindowRange
+        doubleTapWindow = min(max(window, range.lowerBound), range.upperBound)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if let hotkey {
+            try container.encode(hotkey, forKey: .hotkey)
+        } else {
+            try container.encodeNil(forKey: .hotkey)
+        }
+        try container.encode(doubleTap, forKey: .doubleTap)
+        try container.encode(doubleTapWindow, forKey: .doubleTapWindow)
+    }
+}
+
 /// The whole config file (`~/.config/ting/config.json`).
 /// JSON keys: "version", "leader" (Hotkey string or null), "showDelay", "unknownKey",
-/// "appearance", "launchAtLogin", "showMenuBarIcon", "showPanelHeader", "playSound", "items".
+/// "appearance", "launchAtLogin", "showMenuBarIcon", "showPanelHeader", "playSound",
+/// "launcha" (`LaunchaSettings`), "items".
 /// Every key is optional when decoding; a missing key takes the default below.
 public struct Config: Equatable, Sendable, Codable {
     public static let currentVersion = 1
@@ -105,6 +148,8 @@ public struct Config: Equatable, Sendable, Codable {
     /// Show the title row above selecta and launcha panels.
     public var showPanelHeader: Bool = true
     public var playSound: Bool = true
+    /// Launcha settings. Older files without "launcha" get the defaults.
+    public var launcha: LaunchaSettings = LaunchaSettings()
     public var items: [Item] = []
 
     public init() {}
@@ -127,7 +172,7 @@ public struct Config: Equatable, Sendable, Codable {
     }
 
     private enum ConfigCodingKeys: String, CodingKey {
-        case version, leader, showDelay, unknownKey, appearance, launchAtLogin, showMenuBarIcon, showPanelHeader, playSound, items
+        case version, leader, showDelay, unknownKey, appearance, launchAtLogin, showMenuBarIcon, showPanelHeader, playSound, launcha, items
     }
 
     public init(from decoder: Decoder) throws {
@@ -143,6 +188,7 @@ public struct Config: Equatable, Sendable, Codable {
         showMenuBarIcon = try container.decodeIfPresent(Bool.self, forKey: .showMenuBarIcon) ?? defaults.showMenuBarIcon
         showPanelHeader = try container.decodeIfPresent(Bool.self, forKey: .showPanelHeader) ?? defaults.showPanelHeader
         playSound = try container.decodeIfPresent(Bool.self, forKey: .playSound) ?? defaults.playSound
+        launcha = try container.decodeIfPresent(LaunchaSettings.self, forKey: .launcha) ?? defaults.launcha
         items = try container.decodeIfPresent([Item].self, forKey: .items) ?? defaults.items
     }
 
@@ -161,6 +207,7 @@ public struct Config: Equatable, Sendable, Codable {
         try container.encode(showMenuBarIcon, forKey: .showMenuBarIcon)
         try container.encode(showPanelHeader, forKey: .showPanelHeader)
         try container.encode(playSound, forKey: .playSound)
+        try container.encode(launcha, forKey: .launcha)
         try container.encode(items, forKey: .items)
     }
 }
@@ -243,10 +290,14 @@ public struct ConfigIssue: Equatable, Sendable {
         case missingLeader
         /// The leader is not `isValid`.
         case invalidLeader
+        /// The launcha hotkey is not `isValid` (for example a modifier on its own).
+        case invalidLaunchaHotkey
+        /// The launcha hotkey is the same as the leader.
+        case launchaHotkeyConflict
     }
 
     public var kind: Kind
-    /// Key sequence of the item. Empty for leader issues.
+    /// Key sequence of the item. Empty for leader and launcha hotkey issues.
     public var sequence: [String]
     public var message: String
 
@@ -258,7 +309,7 @@ public struct ConfigIssue: Equatable, Sendable {
 }
 
 public enum ConfigValidator {
-    /// All issues, depth-first in item order. For a duplicate key, report one issue per duplicate
+    /// Leader issues first, then launcha hotkey issues, then all item issues depth-first in item order. For a duplicate key, report one issue per duplicate
     /// after the first, with the duplicate's sequence.
     public static func validate(_ config: Config) -> [ConfigIssue] {
         var issues: [ConfigIssue] = []
@@ -269,6 +320,15 @@ public enum ConfigValidator {
             }
         } else {
             issues.append(ConfigIssue(kind: .missingLeader, sequence: [], message: "No leader key yet."))
+        }
+        if let hotkey = config.launcha.hotkey {
+            if !hotkey.isValid {
+                issues.append(ConfigIssue(kind: .invalidLaunchaHotkey, sequence: [],
+                                          message: "\(hotkey.display) cannot open launcha. Choose a key that is not a modifier."))
+            } else if hotkey == config.leader {
+                issues.append(ConfigIssue(kind: .launchaHotkeyConflict, sequence: [],
+                                          message: "\(hotkey.display) is already the leader. Choose another key for launcha."))
+            }
         }
         validate(config.items, prefix: [], into: &issues)
         return issues
