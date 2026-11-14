@@ -38,6 +38,12 @@ final class AppModel {
     /// Held-key guard for the launcha hotkey: a repeat while held never toggles twice.
     @ObservationIgnored private var launchaKey = LeaderDoubleTap(isEnabled: false)
     @ObservationIgnored private lazy var recordingGate = HotkeyRecordingGate { [weak self] in self?.setRecordingHotkey($0) }
+    /// The "ting" for an opened app, link or file: the system "Tink" at half volume.
+    @ObservationIgnored private lazy var tink: NSSound? = {
+        let sound = NSSound(named: "Tink")
+        sound?.volume = 0.5
+        return sound
+    }()
 
     init() {
         let runner = ActionRunner()
@@ -270,7 +276,7 @@ final class AppModel {
     }
 
     private func playSound() {
-        if config.playSound { NSSound(named: "Tink")?.play() }
+        if config.playSound { tink?.play() }
     }
 
     /// Opens a selecta binding and counts a successful launch once.

@@ -16,8 +16,8 @@ from grime and sound-system culture: amber keycaps on graphite, `esc pull up`,
 Requires **macOS 14 or later**. Official releases are universal builds for
 **Apple Silicon and Intel**.
 
-[Release notes for Ting 0.3.2](docs/releases/v0.3.2.md): launcha now indexes
-every app in its folders, without scan limits or limit notices.
+[Release notes for Ting 0.3.3](docs/releases/v0.3.3.md): a quieter “ting” and
+a clearer Settings switch to turn it off.
 
 ## Install
 
@@ -102,8 +102,9 @@ Choose **Settings…** in the menu-bar menu, or open Ting again from Finder or
 Spotlight.
 
 - **General:** light or dark theme (dark by default), the leader key, the menu
-  delay, what an unknown key does, launch at login, the menu-bar icon, the
-  "ting" sound and update checks. “Show panel title” controls the `Ting · selecta`
+  delay, what an unknown key does, launch at login, the menu-bar icon, the quiet
+  "ting" when Ting opens an app, link or file (on by default, `playSound` in the
+  config file), and update checks. “Show panel title” controls the `Ting · selecta`
   and `Ting · launcha` title rows (on by default); hiding them keeps the leader
   symbol, sequence and search input visible. With the title hidden, selecta uses
   the same compact gap below the amber top rule as launcha.

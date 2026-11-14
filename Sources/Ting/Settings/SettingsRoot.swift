@@ -81,7 +81,7 @@ private struct GeneralSettings: View {
                     Text("Open Ting again from Finder or Spotlight to get back to Settings.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                Toggle("Play a “ting” on launch", isOn: model.binding(\.playSound))
+                Toggle("Play a “ting” when opening an app, link or file", isOn: model.binding(\.playSound))
             } header: { MonoLabel("System", size: 9).foregroundStyle(Color.tingAmber) }
             if updates.isAvailable {
                 Section {
