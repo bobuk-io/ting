@@ -9,6 +9,8 @@ final class LeaderPanel: NSPanel {
     var onKeyDown: ((NSEvent) -> Void)?
     /// Key releases, a second source for the leader release next to Carbon.
     var onKeyUp: ((NSEvent) -> Void)?
+    /// ⌘,: open Settings.
+    var onOpenSettings: (() -> Void)?
 
     init() {
         super.init(contentRect: NSRect(x: 0, y: 0, width: 460, height: 640),
@@ -38,10 +40,16 @@ final class LeaderPanel: NSPanel {
     }
 
     /// Swallow ⌘ shortcuts so, for example, ⌘Q does not quit Ting while the menu is up.
+    /// ⌘, is the exception: it opens Settings.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         // AppKit also offers arrows here before sendEvent. Claiming every event
         // discards navigation before the controller can see it.
-        event.type == .keyDown && event.modifierFlags.contains(.command)
+        guard event.type == .keyDown, event.modifierFlags.contains(.command) else { return false }
+        if !event.isARepeat,
+           SettingsOpener.isShortcut(latin: KeyTranslator.latin(event.keyCode), flags: event.modifierFlags) {
+            onOpenSettings?()
+        }
+        return true
     }
 }
 
@@ -68,6 +76,8 @@ final class LeaderController: NSObject, NSWindowDelegate {
     var onRun: ((Item) -> Void)?
     /// A root double tap of the leader: the menu is closed, open launcha.
     var onDoubleTap: (() -> Void)?
+    /// ⌘, in the menu.
+    var onOpenSettings: (() -> Void)?
 
     private var machine = LeaderMachine(items: [])
     private var doubleTap = LeaderDoubleTap()
@@ -278,6 +288,7 @@ final class LeaderController: NSObject, NSWindowDelegate {
         let panel = LeaderPanel()
         panel.delegate = self
         panel.onKeyDown = { [weak self] event in self?.handleKeyDown(event) }
+        panel.onOpenSettings = { [weak self] in self?.onOpenSettings?() }
         panel.onKeyUp = { [weak self] event in
             guard let self, event.keyCode == self.leaderKeyCode else { return }
             self.leaderReleased()

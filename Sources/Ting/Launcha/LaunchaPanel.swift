@@ -15,6 +15,8 @@ final class LaunchaPanel: NSPanel {
     /// List navigation must keep working when Tab moves focus away from the search field.
     var onMove: ((Int) -> Void)?
     var onEditShortcut: (() -> Void)?
+    /// ⌘,: open Settings.
+    var onOpenSettings: (() -> Void)?
     /// Returns true only while the inline recorder owns the panel's key events.
     var onRecordShortcut: ((NSEvent) -> Bool)?
 
@@ -66,6 +68,8 @@ final class LaunchaPanel: NSPanel {
         /// ⌘↩: show the selected result in Finder.
         case reveal
         case editShortcut
+        /// ⌘,: open Settings.
+        case settings
         /// A text command sent to the field through the responder chain.
         case action(Selector)
         /// Any other ⌘ shortcut, for example ⌘Q: ignored, so it never reaches Ting's menu.
@@ -78,11 +82,12 @@ final class LaunchaPanel: NSPanel {
     /// Ting has no Edit menu while it is not the active app, so text shortcuts are sent
     /// to the field here. Keys are matched by the Latin layout, so ⌘V also works with
     /// Russian or Ukrainian input. ⌘ with arrows, ⌫ or ⌦ goes to the text editor.
-    /// Other ⌘ shortcuts are swallowed: ⌘Q must not quit Ting.
+    /// ⌘, opens Settings. Other ⌘ shortcuts are swallowed: ⌘Q must not quit Ting.
     static func route(keyCode: UInt16, latin: String?, flags: NSEvent.ModifierFlags) -> KeyEquivalentRoute {
         let flags = flags.intersection([.command, .shift, .option, .control])
         guard flags.contains(.command) else { return .editor }
         if latin == "k", flags == [.command, .shift] { return .editShortcut }
+        if SettingsOpener.isShortcut(latin: latin, flags: flags) { return .settings }
         if editingKeyCodes.contains(keyCode) { return .editor }
         if keyCode == 36 || keyCode == 76 { return flags == .command ? .reveal : .swallow }
         let action: String? = switch (latin ?? "", flags) {
@@ -112,6 +117,9 @@ final class LaunchaPanel: NSPanel {
         case .reveal:
             let composing = (firstResponder as? NSTextView)?.hasMarkedText() == true
             if !composing { onReveal?() }
+            return true
+        case .settings:
+            if !event.isARepeat, (firstResponder as? NSTextView)?.hasMarkedText() != true { onOpenSettings?() }
             return true
         case .action(let selector):
             NSApp.sendAction(selector, to: nil, from: self)
@@ -150,6 +158,8 @@ final class LaunchaController: NSObject, NSWindowDelegate {
     var onBeginShortcutRecording: ((HotkeyRecordingOwner) -> Void)?
     var onEndShortcutRecording: ((HotkeyRecordingOwner) -> Void)?
     var onSaveShortcut: ((LaunchaRow, Hotkey?) throws -> Void)?
+    /// ⌘, in the panel.
+    var onOpenSettings: (() -> Void)?
 
     var isOpen: Bool { model.isOpen }
 
@@ -263,6 +273,7 @@ final class LaunchaController: NSObject, NSWindowDelegate {
         panel.onReveal = { [weak self] in self?.activate(reveal: true) }
         panel.onMove = { [weak self] delta in self?.model.moveSelection(by: delta) }
         panel.onEditShortcut = { [weak self] in self?.editShortcut() }
+        panel.onOpenSettings = { [weak self] in self?.onOpenSettings?() }
         observers.append(NotificationCenter.default.addObserver(
             forName: .launchaEditAppShortcut, object: nil, queue: .main) { [weak self] notification in
                 MainActor.assumeIsolated {

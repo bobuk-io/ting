@@ -195,6 +195,8 @@ final class ClipbawdPanelTests: XCTestCase {
         XCTAssertEqual(ClipbawdPanel.route(keyCode: 9, latin: "v", flags: .command), .action(#selector(NSText.paste(_:))))
         XCTAssertEqual(ClipbawdPanel.route(keyCode: 40, latin: "k", flags: [.command, .shift]), .swallow)
         XCTAssertEqual(ClipbawdPanel.route(keyCode: 12, latin: "q", flags: .command), .swallow)
+        XCTAssertEqual(ClipbawdPanel.route(keyCode: 43, latin: ",", flags: .command), .settings)
+        XCTAssertEqual(ClipbawdPanel.route(keyCode: 43, latin: ",", flags: [.command, .shift]), .swallow)
         XCTAssertEqual(ClipbawdPanel.route(keyCode: 0, latin: "a", flags: []), .editor)
     }
 

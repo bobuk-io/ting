@@ -12,6 +12,8 @@ final class ClipbawdPanel: NSPanel {
     var onCopy: (() -> Void)?
     /// ⇧⌘⌫: remove the selected item.
     var onDelete: (() -> Void)?
+    /// ⌘,: open Settings.
+    var onOpenSettings: (() -> Void)?
 
     init() {
         super.init(contentRect: NSRect(x: 0, y: 0, width: Self.width, height: 600),
@@ -46,18 +48,21 @@ final class ClipbawdPanel: NSPanel {
         case editor
         case copy
         case delete
+        /// ⌘,: open Settings.
+        case settings
         case action(Selector)
         case swallow
     }
 
     /// launcha's routes, with ⌘↩ copying and ⇧⌘⌫ removing the selected item; ⌘⌫ still
-    /// erases the search text, as in launcha.
+    /// erases the search text, as in launcha. ⌘, opens Settings, as in launcha.
     static func route(keyCode: UInt16, latin: String?, flags: NSEvent.ModifierFlags) -> KeyEquivalentRoute {
         let flags = flags.intersection([.command, .shift, .option, .control])
         if flags == .command, keyCode == 36 || keyCode == 76 { return .copy }
         if flags == [.command, .shift], keyCode == 51 { return .delete }
         switch LaunchaPanel.route(keyCode: keyCode, latin: latin, flags: flags) {
         case .editor: return .editor
+        case .settings: return .settings
         case .action(let selector): return .action(selector)
         case .reveal, .editShortcut, .swallow: return .swallow
         }
@@ -74,6 +79,9 @@ final class ClipbawdPanel: NSPanel {
             return true
         case .delete:
             if !composing { onDelete?() }
+            return true
+        case .settings:
+            if !event.isARepeat, !composing { onOpenSettings?() }
             return true
         case .action(let selector):
             NSApp.sendAction(selector, to: nil, from: self)
@@ -149,6 +157,8 @@ final class ClipbawdController: NSObject, NSWindowDelegate {
     var onToast: ((String) -> Void)?
     /// "Never Keep from <app>" was chosen.
     var onExclude: ((ClipSource) -> Void)?
+    /// ⌘, in the panel.
+    var onOpenSettings: (() -> Void)?
 
     var isOpen: Bool { state.isOpen }
 
@@ -239,6 +249,7 @@ final class ClipbawdController: NSObject, NSWindowDelegate {
         panel.onMove = { [weak self] delta in self?.state.move(by: delta) }
         panel.onCopy = { [weak self] in self?.choose(paste: false) }
         panel.onDelete = { [weak self] in self?.removeSelected() }
+        panel.onOpenSettings = { [weak self] in self?.onOpenSettings?() }
         let view = ClipbawdView(state: state,
                                   onChoose: { [weak self] id, paste in self?.choose(id: id, paste: paste) },
                                   onDismiss: { [weak self] in self?.close() },
