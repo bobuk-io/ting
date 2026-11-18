@@ -122,8 +122,14 @@ final class LaunchaPanelKeyRouteTests: XCTestCase {
     func testAppCommandsAreSwallowed() {
         XCTAssertEqual(route(12, "q", .command), .swallow)
         XCTAssertEqual(route(13, "w", .command), .swallow)
-        XCTAssertEqual(route(43, ",", .command), .swallow)
         XCTAssertEqual(route(4, "h", .command), .swallow)
+    }
+
+    func testCommandCommaOpensSettings() {
+        XCTAssertEqual(route(43, ",", .command), .settings)
+        // Only plain ⌘,: other modifiers stay swallowed.
+        XCTAssertEqual(route(43, ",", [.command, .shift]), .swallow)
+        XCTAssertEqual(route(43, ",", [.command, .option]), .swallow)
     }
 }
 

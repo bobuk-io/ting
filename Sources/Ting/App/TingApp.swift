@@ -44,6 +44,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 /// Opens the SwiftUI Settings scene from AppKit code.
 @MainActor
 enum SettingsOpener {
+    /// ⌘, as in every Mac app. Ting is not the active app while a launcher panel has the
+    /// keys, so its menu never sees the shortcut; the panels check for it themselves.
+    /// Matched by the Latin layout, so it also works with Ukrainian or Russian input.
+    nonisolated static func isShortcut(latin: String?, flags: NSEvent.ModifierFlags) -> Bool {
+        latin == "," && flags.intersection([.command, .shift, .option, .control]) == .command
+    }
+
     static func open() {
         // LSUIElement apps are not active by default; without this Settings opens behind other windows.
         NSApp.activate()
