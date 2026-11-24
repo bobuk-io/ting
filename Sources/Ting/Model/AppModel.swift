@@ -24,6 +24,7 @@ final class AppModel {
     private(set) var launchaHotkeyStatus: HotkeyService.Status = .inactive
     private(set) var clipbawdHotkeyStatus: HotkeyService.Status = .inactive
     private(set) var chattaHotkeyStatus: HotkeyService.Status = .inactive
+    private(set) var windowHotkeyStatuses: [WindowCommand: HotkeyService.Status] = [:]
     private(set) var loginItemError: String?
     /// Every file of the micro-apps folder, good and broken, by file name.
     private(set) var microApps: [MicroAppEntry] = []
@@ -46,9 +47,11 @@ final class AppModel {
     @ObservationIgnored let store: ConfigStore
     @ObservationIgnored private(set) lazy var microStore = MicroAppStore(configURL: store.url)
     @ObservationIgnored private let hotkeys: HotkeyService
+    @ObservationIgnored private var activeWindowShortcuts: [WindowShortcut] = []
     @ObservationIgnored private var activeAppShortcuts: [AppShortcut] = []
     @ObservationIgnored let leader: LeaderController
     @ObservationIgnored private let runner: ActionRunner
+    @ObservationIgnored private let windowManager: WindowManaging
     @ObservationIgnored private let toast: ToastController
     @ObservationIgnored private let launchaModel: LaunchaModel
     @ObservationIgnored let launcha: LaunchaController
@@ -72,7 +75,7 @@ final class AppModel {
     /// The one open micro-app flow: approval, working state and result.
     @ObservationIgnored private let microFlow = MicroAppFlowController()
     /// The Accessibility window, and whether Ting may use Accessibility.
-    @ObservationIgnored let accessibility = AccessibilityWindowController()
+    @ObservationIgnored var accessibility: AccessibilityWindowController
     /// Held-key guard for the launcha hotkey: a repeat while held never toggles twice.
     @ObservationIgnored private var launchaKey = LeaderDoubleTap(isEnabled: false)
     @ObservationIgnored private var clipbawdKey = LeaderDoubleTap(isEnabled: false)
@@ -83,8 +86,10 @@ final class AppModel {
 
     /// `presentsWindows` false: the launchers keep their state but show no window (tests).
     init(presentsWindows: Bool = true, store: ConfigStore? = nil, hotkeys: HotkeyService? = nil,
-         clipbawd: ClipbawdHistory? = nil, theme: ThemeStore? = nil) {
+         clipbawd: ClipbawdHistory? = nil, theme: ThemeStore? = nil, windowManager: WindowManaging? = nil) {
         self.presentsWindows = presentsWindows
+        self.windowManager = windowManager ?? WindowManager()
+        self.accessibility = AccessibilityWindowController(presentsWindow: presentsWindows)
         if let theme {
             self.theme = theme
         } else if presentsWindows {
@@ -162,8 +167,9 @@ final class AppModel {
     /// The menu-bar item shows its problem mark.
     var needsAttention: Bool {
         configError != nil || hotkeyProblem != nil || launchaHotkeyProblem != nil || clipbawdHotkeyProblem != nil
-            || chattaHotkeyProblem != nil || !microAppIssues.isEmpty
-            || !launcha.chrome.appShortcutProblems.isEmpty || issues.contains { $0.kind == .appHotkey }
+            || chattaHotkeyProblem != nil || windowHotkeyStatuses.values.contains { if case .failed = $0 { true } else { false } }
+            || !microAppIssues.isEmpty || !launcha.chrome.appShortcutProblems.isEmpty
+            || issues.contains { $0.kind == .appHotkey || $0.kind == .windowHotkey }
     }
 
     var launchaHotkeyDisplay: String { config.launcha.hotkey?.display ?? "Not set" }
@@ -191,6 +197,12 @@ final class AppModel {
         }
     }
 
+    func windowHotkeyProblem(_ command: WindowCommand) -> String? {
+        if let problem = assignments.windowProblems[command] { return problem }
+        if case .failed(let reason) = windowHotkeyStatuses[command] { return reason }
+        return nil
+    }
+
     /// Why the chatta hotkey does not work: invalid, the same as another Ting key, or taken.
     var chattaHotkeyProblem: String? {
         if let issue = issues.first(where: { $0.kind == .invalidChattaHotkey || $0.kind == .chattaHotkeyConflict }) {
@@ -202,6 +214,9 @@ final class AppModel {
         }
     }
 
+}
+
+extension AppModel {
     // MARK: Lifecycle
 
     func start() {
@@ -212,6 +227,7 @@ final class AppModel {
             case .launcha: self?.launchaHotkeyStatus = status
             case .clipbawd: self?.clipbawdHotkeyStatus = status
             case .chatta: self?.chattaHotkeyStatus = status
+            case .window: self?.refreshWindowShortcutProblems()
             case .application: self?.refreshAppShortcutProblems()
             }
         }
@@ -248,7 +264,7 @@ final class AppModel {
         microFlow.clipboardSnapshot = { [weak self] in self?.clipbawd.microAppSnapshot() }
         microFlow.onToast = { [weak self] message in self?.toast.show(message) }
         microFlow.onAccessibilityNeeded = { [weak self] in self?.accessibility.show() }
-        accessibility.onGranted = { [weak self] in self?.toast.show("Accessibility is on. Start the micro-app again.") }
+        accessibility.onGranted = { [weak self] in self?.toast.show("Accessibility is on. Try the action again.") }
         microFlow.folderDisplay = { [weak self] in self?.microStore.displayPath ?? "the micro-apps folder" }
 
         if !store.fileExists {
@@ -320,6 +336,9 @@ final class AppModel {
         toast.show(AgentPrompt.toast)
     }
 
+}
+
+extension AppModel {
     // MARK: Editing (every edit writes the file atomically)
 
     func update(_ change: (inout Config) -> Void) {
@@ -360,6 +379,18 @@ final class AppModel {
         update { $0.chatta.hotkey = hotkey }
     }
 
+    func setWindowHotkey(_ command: WindowCommand, hotkey: Hotkey?) throws {
+        var next = config
+        try WindowShortcutRules.assign(command: command, hotkey: hotkey, in: &next)
+        if let hotkey, isRecordingHotkey, let error = hotkeys.checkAvailable(hotkey) {
+            throw NSError(domain: "io.bobuk.ting.window-shortcuts", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: error])
+        }
+        try store.write(next)
+        configError = nil
+        apply(next)
+    }
+
     /// Saves exactly the retained app selected in launcha, never a different bundle-ID match.
     func setAppShortcut(for row: LaunchaRow, hotkey: Hotkey?) throws {
         guard case .app(let url) = row.kind else { throw AppShortcutRules.Problem.invalidTarget }
@@ -377,6 +408,14 @@ final class AppModel {
         try store.write(next)
         configError = nil
         apply(next)
+    }
+
+    private func refreshWindowShortcutProblems() {
+        var statuses: [WindowCommand: HotkeyService.Status] = [:]
+        for (index, shortcut) in activeWindowShortcuts.enumerated() {
+            statuses[shortcut.command] = hotkeys.status(.window(index))
+        }
+        windowHotkeyStatuses = statuses
     }
 
     private func refreshAppShortcutProblems() {
@@ -498,9 +537,12 @@ final class AppModel {
         NSWorkspace.shared.activateFileViewerSelecting([store.url])
     }
 
+}
+
+extension AppModel {
     // MARK: Private
 
-    private func apply(_ next: Config, reloadMicroApps: Bool = true) {
+    func apply(_ next: Config, reloadMicroApps: Bool = true) {
         let previous = config
         config = next
         assignments = HotkeyAssignments(next)
@@ -534,6 +576,7 @@ final class AppModel {
 
     private func applyHotkey() {
         let active = isPaused || isRecordingHotkey ? nil : assignments
+        activeWindowShortcuts = active?.windows ?? []
         activeAppShortcuts = active?.applications ?? []
         hotkeys.apply(active)
         if active == nil {
@@ -541,6 +584,7 @@ final class AppModel {
             clipbawdPanel.close()
             if isPaused || launcha.chrome.shortcutEditor == nil { launcha.close() }
         }
+        refreshWindowShortcutProblems()
         refreshAppShortcutProblems()
         hotkeyStatus = hotkeys.status(.leader)
         alternateLeaderStatus = hotkeys.status(.alternateLeader)
@@ -556,7 +600,7 @@ final class AppModel {
         case .launcha: launchaKey.release()
         case .clipbawd: clipbawdKey.release()
         case .chatta: chattaKey.release()
-        case .application: break
+        case .application, .window: break
         }
     }
 
@@ -580,6 +624,13 @@ final class AppModel {
                 let outcome = await runner.openApp(at: URL(fileURLWithPath: shortcut.path), name: shortcut.name)
                 await launchaModel.record(outcome, id: shortcut.id)
             }
+        case .window(let index):
+            guard !isPaused, !isRecordingHotkey, activeWindowShortcuts.indices.contains(index) else { return }
+            let command = activeWindowShortcuts[index].command
+            leader.close()
+            launcha.close()
+            clipbawdPanel.close()
+            DispatchQueue.main.async { [weak self] in self?.runWindowCommand(command) }
         case .launcha:
             guard launchaKey.press(at: time, menuOpen: false, menuOpenAtRoot: false) != .ignored else { return }
             if leader.isOpen { leader.close() }
@@ -655,16 +706,30 @@ final class AppModel {
             }
             return
         }
+        if case .window(let command) = item.action {
+            runWindowCommand(command)
+            return
+        }
         let id: String? = switch item.action {
         case .app(let bundleID): LaunchaCandidate.app(bundleID: bundleID, name: "").id
         case .url(let url): LaunchaCandidate.url(url, name: "").id
-        case .group, .micro, .open: nil
+        case .group, .micro, .open, .window: nil
         }
         let activated = runner.activateRunning(item)
         Task {
             let outcome: LaunchOutcome
             if let activated { outcome = activated } else { outcome = await runner.run(item) }
             if let id { await launchaModel.record(outcome, id: id) }
+        }
+    }
+
+    func runWindowCommand(_ command: WindowCommand) {
+        do {
+            try windowManager.run(command, gap: config.windowManagement.gap)
+        } catch WindowManagementError.accessibility {
+            accessibility.show()
+        } catch {
+            toast.show(error.localizedDescription)
         }
     }
 }

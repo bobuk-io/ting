@@ -54,7 +54,7 @@ public struct LaunchaCandidate: Hashable, Sendable, Identifiable {
         for binding in BindingTree.flatten(items) {
             let candidate: LaunchaCandidate
             switch binding.item.action {
-            case .group, .micro, .open: continue
+            case .group, .micro, .open, .window: continue
             case .app(let bundleID):
                 candidate = .app(bundleID: bundleID, name: binding.item.label.isEmpty ? bundleID : binding.item.label)
             case .url(let url):

@@ -25,7 +25,7 @@ public struct AppShortcut: Equatable, Sendable, Codable, Identifiable {
 
 public enum AppShortcutRules {
     public enum Problem: Error, Equatable, Sendable, CustomStringConvertible {
-        case invalidKey, invalidTarget, leader, launcha, clipbawd, chatta
+        case invalidKey, invalidTarget, leader, launcha, clipbawd, chatta, window(String)
 
         public var description: String {
             switch self {
@@ -35,6 +35,7 @@ public enum AppShortcutRules {
             case .launcha: "This key is reserved for launcha. Choose another shortcut."
             case .clipbawd: "This key is reserved for clipbawd. Choose another shortcut."
             case .chatta: "This key is reserved for chatta. Choose another shortcut."
+            case .window(let name): "This key already runs \(name). Choose another shortcut."
             }
         }
     }
@@ -47,6 +48,9 @@ public enum AppShortcutRules {
         case .clipbawd: return .clipbawd
         case .chatta: return .chatta
         case nil: break
+        }
+        if let shortcut = config.windowManagement.shortcuts.first(where: { $0.hotkey == hotkey }) {
+            return .window(shortcut.command.title)
         }
         return nil
     }

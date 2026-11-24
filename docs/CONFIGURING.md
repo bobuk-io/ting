@@ -43,9 +43,11 @@ nothing needs a restart. **Never** write the approvals and remembered values in
     { "key": "t", "label": "Translate", "items": [
       { "key": "u", "label": "Translate to Ukrainian", "micro": "translate-ukrainian" }
     ]},
-    { "key": "w", "label": "Web", "items": [
-      { "key": "g", "label": "GitHub", "url": "https://github.com" }
-    ]}
+    { "key": "w", "label": "Windows", "items": [
+      { "key": "h", "label": "Left Half", "window": "left-half" },
+      { "key": "l", "label": "Right Half", "window": "right-half" }
+    ]},
+    { "key": "g", "label": "GitHub", "url": "https://github.com" }
   ]
 }
 ```
@@ -54,8 +56,9 @@ nothing needs a restart. **Never** write the approvals and remembered values in
   `"key": "a"` inside the group with `"key": "t"`.
 - Each item has `key`, an optional `label` (shown in the menu) and exactly one
   action: `items` (a group), `app` (a bundle identifier), `url` (any URL,
-  including schemes such as `raycast://`), `micro` (a micro-app id) or `open`
-  (a Ting window: `"launcha"`, `"clipbawd"` or `"chatta"`).
+  including schemes such as `raycast://`), `micro` (a micro-app id), `open`
+  (a Ting window: `"launcha"`, `"clipbawd"` or `"chatta"`) or `window`
+  (a focused-window command such as `"left-half"`).
 - `key`: a lower-case Latin letter or digit, `space`, `return` or `f1`…`f20`. Keys
   are Latin even when the person types with another layout.
 - In one group a key is used once.
@@ -95,14 +98,18 @@ nothing needs a restart. **Never** write the approvals and remembered values in
   Chatta window and `chatta:` micro-app steps; `idleTimeoutMinutes` (0–240, 0 disables) stops an idle
   agent subprocess after inactivity while keeping the transcript visible; `allowTools` is `false` by
   default and lets agents use built-in tools such as `web_search` in Chat mode inside the sandbox,
-  prompting once on the first tool call when off to allow always, for this session, or decline). The
-  Clipbawd and Chatta hotkeys cannot match either leader or another launcher hotkey. Clipbawd (while enabled) and Chatta are also searchable by name in launcha.
+  prompting once on the first tool call when off to allow always, for this session, or decline),
+  `windowManagement` (`{"gap": 0, "shortcuts": []}`; `gap` is 0–64 points at display edges and
+  between adjacent tiles; each shortcut has a `command` and `hotkey`). The Clipbawd, Chatta and
+  window-command hotkeys cannot conflict with another Ting hotkey. Clipbawd (while enabled) and
+  Chatta are also searchable by name in launcha.
 - Approved micro-app templates can read `${clipboard[-1]}` (newest history entry), `${clipboard[-2]}`, etc. The snapshot is fixed at run start. Pass history to shell through `env:`; never interpolate it into code. Disabled/unavailable history, images, videos and missing entries fail explicitly. Files yield newline-separated paths. The headless runner has no session history.
 
 ### Settings and clipboard storage
 
 Settings has a sidebar and search across all categories. Leader and launcha controls are in **Keys & Launch**,
-permissions and micro-app diagnostics in **Micro-apps**, file/import/export actions in **Advanced**.
+window gaps and direct window hotkeys in **Windows**, permissions and micro-app diagnostics in **Micro-apps**,
+and file/import/export actions in **Advanced**.
 The menu's **Tools** submenu holds config, reload and Copy Agent Prompt; **Ting** holds About and updates.
 
 Persistent clipboard history is a local binary archive in `~/Library/Application Support/Ting/Clipbawd/history.plist`,
@@ -172,16 +179,45 @@ the same syntax as the leader: a non-modifier key, optionally with modifiers.
 
 Each app has one shortcut and each shortcut belongs to one app. Saving in
 launcha replaces both the app's old shortcut and any other app's assignment to
-the new shortcut; the editor names the other app before Save. Both leaders, `launcha.hotkey` and the enabled clipbawd hotkey are reserved, even while recording suspends them. An
-OS registration conflict or failed save keeps the old configuration.
+the new shortcut; the editor names the other app before Save. Both leaders, launcher hotkeys and
+window-command hotkeys are reserved, even while recording suspends them. An OS registration
+conflict or failed save keeps the old configuration.
 
 In a hand-written file, invalid or duplicate entries produce validation
 issues; only the first valid assignment for an app and key is registered.
-An app shortcut that conflicts with either leader, launcha or enabled clipbawd is disabled, never
-the protected shortcut. Changing a protected key later can therefore disable
+An app shortcut that conflicts with either leader, a launcher hotkey or a window-command hotkey is
+disabled, never the protected shortcut. Changing a protected key later can therefore disable
 an app assignment without deleting it. Pausing Ting or recording a shortcut
 suspends application hotkeys too. Holding an app shortcut launches only once
 until release. Successful launches count toward launcha's ranking.
+
+### Window management
+
+A binding can use one of these `window` values:
+
+```text
+left-half, right-half, top-half, bottom-half
+top-left-quarter, top-right-quarter, bottom-left-quarter, bottom-right-quarter
+first-third, center-third, last-third
+maximize, center, restore, previous-display, next-display
+```
+
+The same commands can have direct global shortcuts:
+
+```json
+"windowManagement": {
+  "gap": 8,
+  "shortcuts": [
+    { "command": "left-half", "hotkey": "option+cmd+left" },
+    { "command": "right-half", "hotkey": "option+cmd+right" }
+  ]
+}
+```
+
+Window commands act on the focused window and require Accessibility permission. `center` keeps the
+current size. `restore` returns to the frame saved before Ting first moved that window in this app
+session. Previous/next display preserves size when it fits and keeps the relative position. Spaces
+are not controlled. A window hotkey cannot reuse a leader, launcher, app or another window hotkey.
 
 Find an app's bundle identifier with
 `mdls -name kMDItemCFBundleIdentifier -r /Applications/Ghostty.app`.

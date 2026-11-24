@@ -1,4 +1,4 @@
-// Global hotkeys: the leader, optional launcha and clipbawd keys and direct application shortcuts.
+// Global hotkeys: launchers plus direct application and focused-window shortcuts.
 // Each is any non-modifier key, alone or with modifiers. Registered through BobukKit's
 // `GlobalHotkeyCenter` (Carbon `RegisterEventHotKey`, no Accessibility or Input Monitoring
 // permission, press and release). This layer adds Ting's slots and the role messages.
@@ -15,8 +15,10 @@ final class HotkeyService {
         case clipbawd
         case chatta
         case application(Int)
+        case window(Int)
 
-        /// Far above any application index.
+        /// Far above any application index, with window commands in their own range below it.
+        static let windowBaseID: UInt32 = 0x4000_0000
         static let clipbawdID: UInt32 = 0x7FFF_0000
 
         init(_ launcher: LauncherHotkey) {
@@ -37,6 +39,7 @@ final class HotkeyService {
             case .launcha: 2
             case .clipbawd: Self.clipbawdID
             case .application(let index): UInt32(index) + 3
+            case .window(let index): Self.windowBaseID + UInt32(index)
             }
         }
 
@@ -48,6 +51,7 @@ final class HotkeyService {
             case Self.clipbawdID: self = .clipbawd
             case Self.clipbawdID + 1: self = .alternateLeader
             case Self.clipbawdID + 2: self = .chatta
+            case Self.windowBaseID..<Self.clipbawdID: self = .window(Int(rawValue - Self.windowBaseID))
             default: self = .application(Int(rawValue - 3))
             }
         }
@@ -59,6 +63,7 @@ final class HotkeyService {
             case .clipbawd: "open clipbawd"
             case .chatta: "open chatta"
             case .application: "open an application"
+            case .window: "move a window"
             }
         }
     }
@@ -119,12 +124,16 @@ final class HotkeyService {
             case .clipbawd: role = "clipbawd"
             case .chatta: role = "chatta"
             case .application: role = "another application"
+            case .window: role = "another window command"
             }
             return refuse(slot, "\(hotkey.display) is already used for \(role).")
         }
-        // Application shortcuts launch once per hold; the leaders see Carbon's repeats.
+        // Direct actions run once per hold; launcher hotkeys see Carbon's repeats.
         let repeats: Bool
-        if case .application = slot { repeats = false } else { repeats = true }
+        switch slot {
+        case .application, .window: repeats = false
+        default: repeats = true
+        }
         center.register(hotkey, id: slot.rawValue, repeats: repeats,
                         onPress: { [weak self] time in self?.onPress?(slot, time) },
                         onRelease: { [weak self] in self?.onRelease?(slot) })
@@ -136,6 +145,9 @@ final class HotkeyService {
         if let assignments {
             for launcher in LauncherHotkey.allCases {
                 if let key = assignments.launchers[launcher] { desired.append((Slot(launcher), key)) }
+            }
+            for (index, shortcut) in assignments.windows.enumerated() {
+                desired.append((.window(index), shortcut.hotkey))
             }
             for (index, shortcut) in assignments.applications.enumerated() {
                 desired.append((.application(index), shortcut.hotkey))

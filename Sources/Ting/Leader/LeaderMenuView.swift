@@ -123,6 +123,7 @@ private struct Row: View {
         case .url(let url): return url
         case .micro(let id): return id
         case .open(let panel): return panel.rawValue
+        case .window(let command): return command.title
         }
     }
 
@@ -139,6 +140,7 @@ private struct Row: View {
         case .app: "arrow.right"
         case .micro: "play"
         case .open: "arrow.right"
+        case .window: "rectangle.inset.filled"
         }
     }
 }

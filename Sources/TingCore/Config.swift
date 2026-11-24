@@ -15,8 +15,10 @@ public struct Item: Equatable, Sendable, Codable {
         case url(String)
         /// A micro-app id, e.g. "format-json". The micro-app does not have to be loaded.
         case micro(String)
-        /// A Ting window: launcha or clipbawd.
+        /// A Ting window: launcha, clipbawd or chatta.
         case open(TingPanel)
+        /// Move or resize the focused macOS window.
+        case window(WindowCommand)
     }
 
     /// A `SequenceKey` name.
@@ -35,6 +37,9 @@ public struct Item: Equatable, Sendable, Codable {
     public static func url(_ key: String, _ label: String, _ url: String) -> Item { Item(key: key, label: label, action: .url(url)) }
     public static func micro(_ key: String, _ label: String, _ id: String) -> Item { Item(key: key, label: label, action: .micro(id)) }
     public static func open(_ key: String, _ label: String, _ panel: TingPanel) -> Item { Item(key: key, label: label, action: .open(panel)) }
+    public static func window(_ key: String, _ label: String, _ command: WindowCommand) -> Item {
+        Item(key: key, label: label, action: .window(command))
+    }
 
     public var isGroup: Bool {
         if case .group = action { return true }
@@ -47,8 +52,8 @@ public struct Item: Equatable, Sendable, Codable {
     }
 
     // JSON: {"key": "a", "label": "Apps", "items": [...]} | {..., "app": "com.x"} | {..., "url": "https://..."}
-    // | {..., "micro": "format-json"} | {..., "open": "clipbawd"}.
-    // Decoding: exactly one of "items"/"app"/"url"/"micro"/"open" must be present; "key" is normalized with
+    // | {..., "micro": "format-json"} | {..., "open": "clipbawd"} | {..., "window": "left-half"}.
+    // Decoding: exactly one of "items"/"app"/"url"/"micro"/"open"/"window" must be present; "key" is normalized with
     // SequenceKey.normalize ("A" → "a"); an invalid key or a wrong number of action fields throws
     // DecodingError.dataCorrupted. "label" is optional and defaults to "".
     // Unknown fields are ignored. Encoding writes "key", "label" and exactly one action field.
@@ -64,13 +69,14 @@ public struct Item: Equatable, Sendable, Codable {
         let url = try container.decodeIfPresent(String.self, forKey: .url)
         let micro = try container.decodeIfPresent(String.self, forKey: .micro)
         let open = try container.decodeIfPresent(TingPanel.self, forKey: .open)
+        let window = try container.decodeIfPresent(WindowCommand.self, forKey: .window)
         let actions: [Action] = [items.map(Action.group), app.map(Action.app), url.map(Action.url), micro.map(Action.micro),
-                                 open.map(Action.open)]
+                                 open.map(Action.open), window.map(Action.window)]
             .compactMap { $0 }
         guard actions.count == 1, let action = actions.first else {
             throw DecodingError.dataCorrupted(DecodingError.Context(
                 codingPath: container.codingPath,
-                debugDescription: "Item \"\(rawKey)\" needs exactly one of \"items\", \"app\", \"url\", \"micro\" or \"open\"."))
+                debugDescription: "Item \"\(rawKey)\" needs exactly one of \"items\", \"app\", \"url\", \"micro\", \"open\" or \"window\"."))
         }
         self.key = key
         self.label = try container.decodeIfPresent(String.self, forKey: .label) ?? ""
@@ -87,11 +93,12 @@ public struct Item: Equatable, Sendable, Codable {
         case .url(let url): try container.encode(url, forKey: .url)
         case .micro(let id): try container.encode(id, forKey: .micro)
         case .open(let panel): try container.encode(panel, forKey: .open)
+        case .window(let command): try container.encode(command, forKey: .window)
         }
     }
 
     private enum ItemCodingKeys: String, CodingKey {
-        case key, label, items, app, url, micro, open
+        case key, label, items, app, url, micro, open, window
     }
 }
 
@@ -298,7 +305,8 @@ public struct ChattaSettings: Equatable, Sendable, Codable {
 /// JSON keys: "version", "leader" and "alternateLeader" (Hotkey strings or null), "showDelay", "unknownKey",
 /// "appearance", "launchAtLogin", "showMenuBarIcon", "showPanelHeader", "playSound",
 /// "sound", "soundVolume", "launcha" (`LaunchaSettings`), "clipbawd" (`ClipbawdSettings`),
-/// "microApps" (`MicroAppsSettings`), "chatta" (`ChattaSettings`), "appHotkeys", "items".
+/// "microApps" (`MicroAppsSettings`), "chatta" (`ChattaSettings`), "windowManagement"
+/// (`WindowManagementSettings`), "appHotkeys", "items".
 /// Every key is optional when decoding; a missing key takes the default below.
 public struct Config: Equatable, Sendable, Codable {
     public static let currentVersion = 1
@@ -339,6 +347,8 @@ public struct Config: Equatable, Sendable, Codable {
     public var microApps: MicroAppsSettings = MicroAppsSettings()
     /// Chatta settings. Older files without "chatta" get the defaults.
     public var chatta: ChattaSettings = ChattaSettings()
+    /// Focused-window commands, gaps and direct hotkeys. Older files get the defaults.
+    public var windowManagement: WindowManagementSettings = WindowManagementSettings()
     /// Direct global shortcuts assigned from launcha; older files default to none.
     public var appHotkeys: [AppShortcut] = []
     public var items: [Item] = []
@@ -363,7 +373,9 @@ public struct Config: Equatable, Sendable, Codable {
     }
 
     private enum ConfigCodingKeys: String, CodingKey {
-        case version, leader, alternateLeader, showDelay, unknownKey, appearance, theme, launchAtLogin, showMenuBarIcon, showPanelHeader, playSound, sound, soundVolume, launcha, clipbawd, microApps, chatta, appHotkeys, items
+        case version, leader, alternateLeader, showDelay, unknownKey, appearance, theme
+        case launchAtLogin, showMenuBarIcon, showPanelHeader, playSound, sound, soundVolume
+        case launcha, clipbawd, microApps, chatta, windowManagement, appHotkeys, items
     }
 
     public init(from decoder: Decoder) throws {
@@ -388,6 +400,8 @@ public struct Config: Equatable, Sendable, Codable {
         clipbawd = try container.decodeIfPresent(ClipbawdSettings.self, forKey: .clipbawd) ?? defaults.clipbawd
         microApps = try container.decodeIfPresent(MicroAppsSettings.self, forKey: .microApps) ?? defaults.microApps
         chatta = try container.decodeIfPresent(ChattaSettings.self, forKey: .chatta) ?? defaults.chatta
+        windowManagement = try container.decodeIfPresent(WindowManagementSettings.self, forKey: .windowManagement)
+            ?? defaults.windowManagement
         appHotkeys = try container.decodeIfPresent([AppShortcut].self, forKey: .appHotkeys) ?? defaults.appHotkeys
         items = try container.decodeIfPresent([Item].self, forKey: .items) ?? defaults.items
     }
@@ -415,6 +429,7 @@ public struct Config: Equatable, Sendable, Codable {
         try container.encode(clipbawd, forKey: .clipbawd)
         try container.encode(microApps, forKey: .microApps)
         try container.encode(chatta, forKey: .chatta)
+        try container.encode(windowManagement, forKey: .windowManagement)
         try container.encode(appHotkeys, forKey: .appHotkeys)
         try container.encode(items, forKey: .items)
     }
@@ -511,6 +526,8 @@ public struct ConfigIssue: Equatable, Sendable {
         case invalidChattaHotkey
         /// The chatta hotkey conflicts with another reserved launcher hotkey.
         case chattaHotkeyConflict
+        /// Invalid, reserved or duplicate focused-window hotkey assignment.
+        case windowHotkey
         /// Invalid, reserved or duplicate application hotkey assignment.
         case appHotkey
     }
@@ -562,7 +579,7 @@ public enum ConfigValidator {
                 } else if URL(string: url)?.scheme?.isEmpty ?? true {
                     issues.append(ConfigIssue(kind: .invalidURL, sequence: sequence, message: "\(name) has an invalid URL: \(url)"))
                 }
-            case .open:
+            case .open, .window:
                 break
             case .micro(let id):
                 // An id that is not loaded is fine: the binding shows as not working until the file appears.

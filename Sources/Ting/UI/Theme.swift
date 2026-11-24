@@ -81,15 +81,15 @@ struct TingMark: View {
     var body: some View {
         let tint = color ?? .tingAmber
         Canvas { context, canvas in
-            let s = canvas.width / 16
-            let dot = CGRect(x: 1 * s, y: 6 * s, width: 4 * s, height: 4 * s)
+            let scale = canvas.width / 16
+            let dot = CGRect(x: scale, y: 6 * scale, width: 4 * scale, height: 4 * scale)
             context.fill(Path(ellipseIn: dot), with: .color(tint))
             for (index, radius) in [5.5, 9.5].enumerated() {
                 var arc = Path()
-                arc.addArc(center: CGPoint(x: 3 * s, y: 8 * s), radius: radius * s,
+                arc.addArc(center: CGPoint(x: 3 * scale, y: 8 * scale), radius: radius * scale,
                            startAngle: .degrees(-50), endAngle: .degrees(50), clockwise: false)
                 context.stroke(arc, with: .color(tint.opacity(index == 0 ? 1 : 0.55)),
-                               style: StrokeStyle(lineWidth: 1.8 * s, lineCap: .round))
+                               style: StrokeStyle(lineWidth: 1.8 * scale, lineCap: .round))
             }
         }
         .frame(width: size, height: size)
@@ -233,6 +233,8 @@ struct ItemIcon: View {
                 Image(systemName: "terminal").resizable().foregroundStyle(.secondary)
             case .open(let panel):
                 Image(systemName: panel.symbol).resizable().foregroundStyle(.secondary)
+            case .window:
+                Image(systemName: "rectangle.inset.filled").resizable().foregroundStyle(.secondary)
             }
         }
         .scaledToFit()

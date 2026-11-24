@@ -48,7 +48,9 @@ public enum LauncherHotkey: CaseIterable, Sendable {
 /// Winners and diagnostics from the same walk, independent of macOS registration.
 public struct HotkeyAssignments: Sendable {
     public private(set) var launchers: [LauncherHotkey: Hotkey] = [:]
+    public private(set) var windows: [WindowShortcut] = []
     public private(set) var applications: [AppShortcut] = []
+    public private(set) var windowProblems: [WindowCommand: String] = [:]
     public private(set) var issues: [ConfigIssue] = []
 
     public init(_ config: Config) {
@@ -67,14 +69,41 @@ public struct HotkeyAssignments: Sendable {
             }
         }
 
+        var windowCommands: Set<WindowCommand> = []
+        var windowKeys: Set<Hotkey> = []
+        for shortcut in config.windowManagement.shortcuts {
+            let reason: String
+            if windowCommands.contains(shortcut.command) {
+                reason = "This command is assigned more than once."
+            } else if !shortcut.hotkey.isValid {
+                reason = WindowShortcutRules.Problem.invalidKey.description
+            } else if let owner = LauncherHotkey.owner(of: shortcut.hotkey, in: config) {
+                reason = owner.conflict(for: shortcut.hotkey)
+            } else if windowKeys.contains(shortcut.hotkey) {
+                reason = "A window shortcut is assigned more than once."
+            } else {
+                windowCommands.insert(shortcut.command)
+                windowKeys.insert(shortcut.hotkey)
+                windows.append(shortcut)
+                continue
+            }
+            let message = "\(shortcut.command.title): \(reason)"
+            windowProblems[shortcut.command] = message
+            issues.append(ConfigIssue(kind: .windowHotkey, sequence: [], message: message))
+        }
+
         var ids: Set<String> = []
         var keys: Set<Hotkey> = []
         for shortcut in config.appHotkeys {
             let reason: String
             if !shortcut.hasValidTarget {
                 reason = AppShortcutRules.Problem.invalidTarget.description
-            } else if let reserved = AppShortcutRules.problem(for: shortcut.hotkey, in: config) {
-                reason = reserved.description
+            } else if !shortcut.hotkey.isValid {
+                reason = AppShortcutRules.Problem.invalidKey.description
+            } else if let owner = LauncherHotkey.owner(of: shortcut.hotkey, in: config) {
+                reason = owner.conflict(for: shortcut.hotkey)
+            } else if let window = windows.first(where: { $0.hotkey == shortcut.hotkey }) {
+                reason = AppShortcutRules.Problem.window(window.command.title).description
             } else if ids.contains(shortcut.id) || keys.contains(shortcut.hotkey) {
                 reason = "An application or shortcut is assigned more than once."
             } else {

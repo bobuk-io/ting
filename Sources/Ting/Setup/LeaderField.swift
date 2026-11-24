@@ -7,15 +7,35 @@ import BobukSystem
 @MainActor
 @Observable
 final class HotkeyRecording: HotkeyRecordingOwner {
+    private enum Target {
+        case launcher(LauncherHotkey)
+        case window(WindowCommand)
+
+        var role: String {
+            switch self {
+            case .launcher(let launcher): launcher.role
+            case .window: "move a window"
+            }
+        }
+    }
+
     private(set) var isRecording = false
     private(set) var preview = ""
     private(set) var warning: String?
     @ObservationIgnored private let monitor = KeyMonitor()
     @ObservationIgnored private var model: AppModel?
     @ObservationIgnored private var resignObserver: NSObjectProtocol?
-    @ObservationIgnored private var target = LauncherHotkey.leader
+    @ObservationIgnored private var target = Target.launcher(.leader)
 
     func start(model: AppModel, target: LauncherHotkey = .leader) {
+        start(model: model, target: .launcher(target))
+    }
+
+    func start(model: AppModel, command: WindowCommand) {
+        start(model: model, target: .window(command))
+    }
+
+    private func start(model: AppModel, target: Target) {
         // Starting again first stops this recording's monitor and observer.
         stopListening()
         self.model = model
@@ -29,7 +49,7 @@ final class HotkeyRecording: HotkeyRecordingOwner {
             guard let self else { return event }
             return self.handle(event)
         }
-        // Leaving Ting stops recording, so the old leader never stays switched off.
+        // Leaving Ting stops recording, so the old shortcut never stays switched off.
         resignObserver = NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification,
                                                                 object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.cancel() }
@@ -54,16 +74,14 @@ final class HotkeyRecording: HotkeyRecordingOwner {
         let modifiers = ModifierSet(event.modifierFlags).subtracting(.function)
         switch event.type {
         case .flagsChanged:
-            // Modifiers may be held as part of a combination, but are never leaders alone.
             preview = modifiers.symbols
             return nil
         case .keyDown:
             let hotkey = Hotkey.combo(keyCode: event.keyCode, modifiers: modifiers)
-            let config = model?.config
             if KeyCodes.name(for: event.keyCode) == nil || !hotkey.isValid {
                 warning = "A modifier alone cannot \(target.role). Press any other key."
-            } else if let config, let owner = LauncherHotkey.owner(of: hotkey, in: config, excluding: target) {
-                warning = owner.conflict(for: hotkey) + " Press another key."
+            } else if let problem = conflict(for: hotkey) {
+                warning = problem + " Press another key."
             } else {
                 finish(hotkey)
             }
@@ -73,15 +91,35 @@ final class HotkeyRecording: HotkeyRecordingOwner {
         }
     }
 
+    private func conflict(for hotkey: Hotkey) -> String? {
+        guard let config = model?.config else { return nil }
+        switch target {
+        case .launcher(let launcher):
+            return LauncherHotkey.owner(of: hotkey, in: config, excluding: launcher)?.conflict(for: hotkey)
+        case .window(let command):
+            return WindowShortcutRules.problem(for: hotkey, command: command, in: config)?.description
+        }
+    }
+
     private func finish(_ hotkey: Hotkey) {
         warning = nil
-        cancel()
         switch target {
-        case .leader: model?.setLeader(hotkey)
-        case .alternateLeader: model?.update { $0.alternateLeader = hotkey }
-        case .launcha: model?.setLaunchaHotkey(hotkey)
-        case .clipbawd: model?.setClipbawdHotkey(hotkey)
-        case .chatta: model?.setChattaHotkey(hotkey)
+        case .launcher(let launcher):
+            cancel()
+            switch launcher {
+            case .leader: model?.setLeader(hotkey)
+            case .alternateLeader: model?.update { $0.alternateLeader = hotkey }
+            case .launcha: model?.setLaunchaHotkey(hotkey)
+            case .clipbawd: model?.setClipbawdHotkey(hotkey)
+            case .chatta: model?.setChattaHotkey(hotkey)
+            }
+        case .window(let command):
+            do {
+                try model?.setWindowHotkey(command, hotkey: hotkey)
+                cancel()
+            } catch {
+                warning = error.localizedDescription
+            }
         }
     }
 }

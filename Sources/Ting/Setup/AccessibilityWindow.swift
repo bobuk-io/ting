@@ -54,9 +54,9 @@ final class AccessibilityWindowController {
             window.level = .floating
             window.hidesOnDeactivate = false
             return window
-        }, rootView: { [access = self.access, appURL = self.appURL] in
+        }, rootView: { [access = self.access, appURL = self.appURL, weak self] in
             AccessibilityGuideView(access: access, appURL: appURL,
-                                   onOpenSettings: { [weak self] in self?.openSettings() })
+                                   onOpenSettings: { self?.openSettings() })
         })
         hosted.sizesToFitContent = true
         hosted.onClose = { [weak self] in self?.didClose() }
@@ -143,7 +143,8 @@ struct AccessibilityGuideView: View {
                 MonoLabel("accessibility", size: 10, weight: .regular, tracking: 1).foregroundStyle(Color.tingMuted)
             }
             Text("Let Ting use Accessibility.").font(.system(size: 24, weight: .medium)).tracking(-0.6).padding(.top, 18)
-            Text("A micro-app reads the selected text or the front window, or presses keys and pastes. macOS allows that only for the apps in Privacy & Security › Accessibility.")
+            Text("Window commands move and resize the focused window. Micro-apps may also read context, press keys or paste. "
+                + "macOS allows these actions only for apps in Privacy & Security › Accessibility.")
                 .font(.system(size: 12)).foregroundStyle(Color.tingMuted).padding(.top, 7)
                 .fixedSize(horizontal: false, vertical: true)
 

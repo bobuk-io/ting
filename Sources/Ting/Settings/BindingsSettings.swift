@@ -55,13 +55,18 @@ struct BindingsSettings: View {
             HStack(spacing: 8) {
                 MonoLabel(String(format: "%02d / bindings", allRows.filter { !$0.item.isGroup }.count), size: 10, tracking: 1)
                     .foregroundStyle(Color.tingAmber)
-                TextField("Filter by name, URL, micro-app or keys", text: $query).textFieldStyle(.roundedBorder)
+                TextField("Filter by name, URL, window command, micro-app or keys", text: $query).textFieldStyle(.roundedBorder)
                 Menu {
                     Button("Application…", action: addApplication)
                     Button("URL", action: addURL)
                     Button("Clipbawd") { add(.open("", "Clipboard history", .clipbawd)) }
                     Button("Chatta") { add(.open("", "Chatta", .chatta)) }
                     Button("launcha") { add(.open("", "Search", .launcha)) }
+                    Menu("Window") {
+                        ForEach(WindowCommand.allCases) { command in
+                            Button(command.title) { add(.window("", command.title, command)) }
+                        }
+                    }
                     if model.lowkey.isInstalled {
                         Menu("lowkey") {
                             if let problem = model.lowkey.problem {
@@ -180,14 +185,23 @@ struct BindingsSettings: View {
         case .micro(let id):
             microPicker(row, id: id)
         case .open(let panel):
-            Picker("Window", selection: Binding(
+            Picker("Ting window", selection: Binding(
                 get: { panel },
                 set: { next in model.updateBinding(at: row.sequence) { $0.action = .open(next) } })) {
                 ForEach(TingPanel.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
             .labelsHidden()
             .controlSize(.small)
-            .accessibilityLabel("Window for \(row.item.label)")
+            .accessibilityLabel("Ting window for \(row.item.label)")
+        case .window(let command):
+            Picker("Window command", selection: Binding(
+                get: { command },
+                set: { next in model.updateBinding(at: row.sequence) { $0.action = .window(next) } })) {
+                ForEach(WindowCommand.allCases) { Text($0.title).tag($0) }
+            }
+            .labelsHidden()
+            .controlSize(.small)
+            .accessibilityLabel("Window command for \(row.item.label)")
         }
     }
 
@@ -225,6 +239,7 @@ struct BindingsSettings: View {
         case .url(let url): url
         case .micro(let id): id
         case .open(let panel): panel.rawValue
+        case .window(let command): command.title
         }
     }
 
@@ -238,7 +253,7 @@ struct BindingsSettings: View {
                 set: { text in
                     model.updateBinding(at: row.sequence) { item in
                         switch item.action {
-                        case .group, .open: break
+                        case .group, .open, .window: break
                         case .app: item.action = .app(text)
                         case .url: item.action = .url(text)
                         case .micro: item.action = .micro(text)

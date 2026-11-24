@@ -115,6 +115,7 @@ struct SettingsRoot: View {
                         case .general: GeneralSettings(activation: false)
                         case .activation: GeneralSettings(activation: true)
                         case .bindings: BindingsSettings()
+                        case .windows: WindowSettingsView()
                         case .clipbawd: ClipbawdSettingsView(searchTarget: target)
                         case .chatta: ChattaSettingsView()
                         case .microApps:
@@ -202,6 +203,7 @@ private extension SettingsPage {
         case .general: "Appearance, sound and startup."
         case .activation: "Leader keys, menu timing and launcha."
         case .bindings: "Choose what each key sequence opens."
+        case .windows: "Move and resize the focused window."
         case .clipbawd: "Choose what to keep and when to forget it."
         case .chatta: "Talk to a local ACP agent or let it configure Ting."
         case .microApps: "Your tools, diagnostics and permissions."
@@ -375,7 +377,8 @@ private struct LaunchaSettingsSection: View {
             SettingsToggle("Convert in launcha", detail: "Units, number bases and dates. Try 5 yd to m or now + 2 days.",
                            isOn: model.binding(\.launcha.converter))
             SettingsToggle("Rank by apps you use",
-                           detail: "Also count the apps you switch to outside launcha, at most once per app every 30 minutes. Off by default; the record stays on this Mac, and turning this off deletes it.",
+                           detail: "Also count the apps you switch to outside launcha, at most once per app every 30 minutes. "
+                            + "Off by default; the record stays on this Mac, and turning this off deletes it.",
                            isOn: model.binding(\.launcha.appSwitching))
             Picker("Running apps", selection: model.binding(\.launcha.runningApps)) {
                 Text("Higher").tag(RunningAppsOrder.higher)

@@ -97,9 +97,8 @@ final class ActionRunner: LaunchaOpening {
     /// Runs a selecta binding.
     func run(_ item: Item) async -> LaunchOutcome {
         switch item.action {
-        case .group, .micro, .open:
-            // A micro-app binding starts its flow in `MicroAppFlowController`, a panel binding opens
-            // in `AppModel`, not here.
+        case .group, .micro, .open, .window:
+            // Micro-app, panel and window bindings run in `AppModel`, not here.
             return .failed
         case .app(let bundleID):
             let name = item.label.isEmpty ? bundleID : item.label
