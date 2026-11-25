@@ -5,9 +5,20 @@ struct LaunchaFileResult: Equatable, Sendable {
     var name: String
 }
 
-/// Own one instance per panel. Cancel on close or whenever app matches take priority.
+/// Own one instance per panel. Cancel whenever app matches take priority, and `forget` on close.
 @MainActor
 final class LaunchaSpotlight {
+    /// A finished search, remembered until `forget()`.
+    private struct Finished {
+        let text: String
+        let files: [LaunchaFileResult]
+        let issues: [LaunchaServiceIssue]
+        /// Every match is in `files`: fewer than the cap and nothing skipped or cut off.
+        let complete: Bool
+    }
+    /// The most recent finished searches that `search` answers from without Spotlight.
+    static let rememberedLimit = 32
+
     struct State: Equatable, Sendable {
         enum Status: Equatable, Sendable { case idle, searching, results, empty, error(String) }
         var status: Status = .idle
@@ -28,6 +39,8 @@ final class LaunchaSpotlight {
     private var deadline: Task<Void, Never>?
     private var query: NSMetadataQuery?
     private var observers: [NSObjectProtocol] = []
+    /// Oldest first, at most `rememberedLimit`.
+    private var remembered: [Finished] = []
 
     init(home: URL = FileManager.default.homeDirectoryForCurrentUser,
          protectedFolders: ProtectedFolderPolicy = .needsConsent,
@@ -46,6 +59,33 @@ final class LaunchaSpotlight {
         publish(State())
     }
 
+    /// Ends the session: later searches ask Spotlight again, so files changed since show up.
+    func forget() {
+        remembered.removeAll()
+    }
+
+    /// The local counterpart of the Spotlight predicate (`FSName CONTAINS[cd]`).
+    nonisolated static func nameContains(_ name: String, _ text: String) -> Bool {
+        name.range(of: text, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    }
+
+    /// The answer of a remembered search: the same text, or more text than a complete one,
+    /// whose matches are all in it (`054` answers `0549`).
+    private func rememberedAnswer(for text: String) -> (files: [LaunchaFileResult], issues: [LaunchaServiceIssue])? {
+        if let same = remembered.last(where: { $0.text.compare(text, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) {
+            return (same.files, same.issues)
+        }
+        guard let wider = remembered.last(where: { $0.complete && Self.nameContains(text, $0.text) }) else { return nil }
+        return (wider.files.filter { Self.nameContains($0.url.lastPathComponent, text) }, wider.issues)
+    }
+
+    private func remember(_ text: String, files: [LaunchaFileResult], issues: [LaunchaServiceIssue]) {
+        let complete = files.count < cap && issues.allSatisfy { $0.kind == .needsConsent }
+        remembered.removeAll { $0.text == text }
+        remembered.append(Finished(text: text, files: files, issues: issues, complete: complete))
+        if remembered.count > Self.rememberedLimit { remembered.removeFirst(remembered.count - Self.rememberedLimit) }
+    }
+
     func search(_ text: String) {
         cancel()
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -54,6 +94,9 @@ final class LaunchaSpotlight {
         let issues = policy.protectedFolders == .needsConsent ? policy.protectedURLs.map {
             LaunchaServiceIssue(kind: .needsConsent, url: $0, message: "Protected-folder search needs a user action.")
         } : []
+        if let answer = rememberedAnswer(for: text) {
+            return publish(State(status: answer.files.isEmpty ? .empty : .results, files: answer.files, issues: answer.issues))
+        }
         publish(State(status: .searching, issues: issues))
         work = Task { [weak self, debounce] in
             do { try await Task.sleep(for: debounce) } catch { return }
@@ -67,7 +110,7 @@ final class LaunchaSpotlight {
                 do {
                     let urls = try await provider(text)
                     guard !Task.isCancelled, self.generation == token else { return }
-                    await self.complete(urls, token: token)
+                    await self.complete(urls, text: text, token: token)
                 } catch {
                     guard !Task.isCancelled else { return }
                     self.fail(error.localizedDescription, token: token, issue: .access(error, at: self.policy.home))
@@ -98,13 +141,13 @@ final class LaunchaSpotlight {
                     return URL(fileURLWithPath: path)
                 }
                 self.stopQuery()
-                self.work = Task { [weak self] in await self?.complete(urls, token: token) }
+                self.work = Task { [weak self] in await self?.complete(urls, text: text, token: token) }
             }
         })
         if !query.start() { fail("Spotlight could not start the home search.", token: token) }
     }
 
-    private func complete(_ urls: [URL], token: UUID) async {
+    private func complete(_ urls: [URL], text: String, token: UUID) async {
         let policy = policy
         let cap = cap
         let filtered = Task.detached(priority: .userInitiated) { () -> ([LaunchaFileResult], [LaunchaServiceIssue]) in
@@ -148,9 +191,10 @@ final class LaunchaSpotlight {
             await filtered.value
         } onCancel: { filtered.cancel() }
         guard generation == token, !Task.isCancelled else { return }
-        let previousIssues = state.issues
+        let allIssues = state.issues + issues
         stop()
-        publish(State(status: files.isEmpty ? .empty : .results, files: files, issues: previousIssues + issues))
+        remember(text, files: files, issues: allIssues)
+        publish(State(status: files.isEmpty ? .empty : .results, files: files, issues: allIssues))
     }
 
     private func fail(_ message: String, token: UUID, issue: LaunchaServiceIssue? = nil) {

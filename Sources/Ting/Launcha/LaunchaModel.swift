@@ -289,6 +289,7 @@ final class LaunchaModel {
         refreshLoop?.cancel()
         refreshLoop = nil
         stopSpotlight()
+        services.spotlight.forget()
         isExplainingConsent = false
         query = ""
         if !rows.isEmpty {

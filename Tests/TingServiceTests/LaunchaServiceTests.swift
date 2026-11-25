@@ -2,6 +2,14 @@ import XCTest
 import TingCore
 @testable import Ting
 
+/// Thread-safe record of the texts a Spotlight provider received.
+private final class SpotlightTexts: @unchecked Sendable {
+    private let lock = NSLock()
+    private var texts: [String] = []
+    func add(_ text: String) { lock.withLock { texts.append(text) } }
+    var all: [String] { lock.withLock { texts } }
+}
+
 final class LaunchaServiceTests: XCTestCase {
     private func temporary() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("ting-services-" + UUID().uuidString)
@@ -237,6 +245,83 @@ final class LaunchaServiceTests: XCTestCase {
         XCTAssertEqual(service.state.status, .idle)
         service.search("   ")
         XCTAssertEqual(service.state.status, .idle)
+    }
+
+    /// Waits until a search started by `search` has finished.
+    @MainActor
+    private func finished(_ service: LaunchaSpotlight) async throws {
+        for _ in 0..<300 where service.state.status == .searching { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertNotEqual(service.state.status, .searching, "search did not finish")
+    }
+
+    @MainActor
+    func testSpotlightAnswersFromRememberedSearches() async throws {
+        let home = try temporary()
+        let names = ["k_IMG_0549.png", "0548-other.jpg", "notes.txt"]
+        for name in names { try Data().write(to: home.appendingPathComponent(name)) }
+        let files = names.map { home.appendingPathComponent($0) }
+        let texts = SpotlightTexts()
+        let service = LaunchaSpotlight(home: home, protectedFolders: .allowed, debounce: .zero) { text in
+            texts.add(text)
+            return files.filter { LaunchaSpotlight.nameContains($0.lastPathComponent, text) }
+        }
+        service.search("054")
+        try await finished(service)
+        XCTAssertEqual(service.state.files.count, 2)
+
+        // `054` found every match (2 < cap): more text is answered from it at once.
+        service.search("0549")
+        XCTAssertEqual(service.state.files.map(\.name), ["k_IMG_0549.png"])
+        service.search("05498")
+        XCTAssertEqual(service.state.status, .empty)
+        // Back to shorter text, and the same text again: also at once.
+        service.search("0549")
+        XCTAssertEqual(service.state.files.map(\.name), ["k_IMG_0549.png"])
+        service.search("054")
+        XCTAssertEqual(service.state.files.count, 2)
+        XCTAssertEqual(texts.all, ["054"], "no Spotlight query for remembered answers")
+
+        // Closing launcha forgets them.
+        service.forget()
+        service.search("054")
+        XCTAssertEqual(service.state.status, .searching)
+        try await finished(service)
+        XCTAssertEqual(texts.all, ["054", "054"])
+    }
+
+    @MainActor
+    func testSpotlightAsksAgainAfterAnIncompleteResultAndKeepsOnly32() async throws {
+        let home = try temporary()
+        let names = ["k_IMG_0549.png", "0549.jpg"]
+        for name in names { try Data().write(to: home.appendingPathComponent(name)) }
+        let files = names.map { home.appendingPathComponent($0) }
+        let texts = SpotlightTexts()
+        // A cap of 1 makes `054` incomplete: its one file may not be every match of `0549`.
+        let service = LaunchaSpotlight(home: home, protectedFolders: .allowed, debounce: .zero, cap: 1) { text in
+            texts.add(text)
+            return files.filter { LaunchaSpotlight.nameContains($0.lastPathComponent, text) }
+        }
+        service.search("054")
+        try await finished(service)
+        XCTAssertEqual(service.state.files.count, 1)
+        service.search("054")
+        XCTAssertEqual(service.state.files.count, 1, "the same text is answered even when incomplete")
+        service.search("0549")
+        XCTAssertEqual(service.state.status, .searching)
+        try await finished(service)
+        XCTAssertEqual(texts.all, ["054", "0549"])
+
+        // Only the 32 most recent searches are remembered. No text contains another, so each is asked.
+        for index in 0...LaunchaSpotlight.rememberedLimit {
+            service.search("q\(index)x")
+            try await finished(service)
+        }
+        XCTAssertEqual(texts.all.count, 2 + LaunchaSpotlight.rememberedLimit + 1)
+        service.search("q\(LaunchaSpotlight.rememberedLimit)x")
+        XCTAssertEqual(service.state.status, .empty, "recent: remembered")
+        service.search("q0x")
+        XCTAssertEqual(service.state.status, .searching, "oldest: forgotten")
+        service.cancel()
     }
 
     @MainActor
