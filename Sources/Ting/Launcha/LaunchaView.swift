@@ -206,12 +206,13 @@ private struct ResultList: View {
         let rows = model.rows
         let selection = model.selection
         let preparedQuery = model.query.isEmpty ? nil : FuzzyQuery(model.query)
+        let literalQuery = model.query.trimmingCharacters(in: .whitespacesAndNewlines)
         let shortcuts = chrome.appHotkeysByID
         ScrollViewReader { proxy in
             ScrollView(.vertical) {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                        ResultRow(row: row, preparedQuery: preparedQuery, selected: index == selection, icons: chrome.icons,
+                        ResultRow(row: row, preparedQuery: preparedQuery, literalQuery: literalQuery, selected: index == selection, icons: chrome.icons,
                                   shortcut: shortcuts[row.id]) {
                             model.select(row.id)
                             onActivate(false)
@@ -239,14 +240,36 @@ private struct ResultList: View {
     }
 }
 
+extension LaunchaRow {
+    /// Character offsets of the first `text` in `name`, ignoring case and diacritics as the
+    /// file search does; nil when `name` does not contain it.
+    static func literalPositions(of text: String, in name: String) -> [Int]? {
+        guard !text.isEmpty,
+              let range = name.range(of: text, options: [.caseInsensitive, .diacriticInsensitive]) else { return nil }
+        let start = name.distance(from: name.startIndex, to: range.lowerBound)
+        return Array(start..<(start + name.distance(from: range.lowerBound, to: range.upperBound)))
+    }
+}
+
 private struct ResultRow: View {
     let row: LaunchaRow
     /// Prepared once per list so rows do not re-parse the query or keyboard layout variants.
     let preparedQuery: FuzzyQuery?
+    /// The query as typed: files are found by name containing it, so they highlight it as is.
+    let literalQuery: String
     let selected: Bool
     let icons: LaunchaIconCache
     let shortcut: Hotkey?
     let action: () -> Void
+
+    /// Files highlight the typed text, punctuation included; other rows the fuzzy match.
+    private var title: AttributedString {
+        if row.isCalculation { return AttributedString(row.name) }
+        if case .file = row.kind, let positions = LaunchaRow.literalPositions(of: literalQuery, in: row.name) {
+            return .highlighting(row.name, positions: positions, color: .tingAmber)
+        }
+        return preparedQuery.map { .highlighting(row.name, query: $0, color: .tingAmber) } ?? AttributedString(row.name)
+    }
 
     var body: some View {
         Button(action: action) {
@@ -268,9 +291,7 @@ private struct ResultRow: View {
                     RowIcon(url: url, icons: icons)
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(row.isCalculation ? AttributedString(row.name)
-                                           : preparedQuery.map { .highlighting(row.name, query: $0, color: .tingAmber) }
-                                               ?? AttributedString(row.name))
+                    Text(title)
                         .font(row.isCalculation ? .system(size: 15, weight: .semibold, design: .monospaced)
                                                 : .system(size: 13, weight: .medium))
                         .lineLimit(1).truncationMode(.middle)

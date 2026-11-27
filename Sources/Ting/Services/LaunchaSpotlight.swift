@@ -73,6 +73,15 @@ final class LaunchaSpotlight {
         remembered.removeAll()
     }
 
+    /// Spotlight finds no name that contains a text ending in `_` or `.` (`img_` misses
+    /// `k_IMG_0548.png`), so it gets the text without trailing punctuation. Results are then
+    /// matched against the full text with `nameContains`.
+    nonisolated static func spotlightText(_ text: String) -> String {
+        var scalars = Substring(text).unicodeScalars
+        while let last = scalars.last, !CharacterSet.alphanumerics.contains(last) { scalars.removeLast() }
+        return String(scalars)
+    }
+
     /// The local counterpart of the Spotlight predicate (`FSName CONTAINS[cd]`).
     nonisolated static func nameContains(_ name: String, _ text: String) -> Bool {
         name.range(of: text, options: [.caseInsensitive, .diacriticInsensitive]) != nil
@@ -103,6 +112,9 @@ final class LaunchaSpotlight {
         let issues = policy.protectedFolders == .needsConsent ? policy.protectedURLs.map {
             LaunchaServiceIssue(kind: .needsConsent, url: $0, message: "Protected-folder search needs a user action.")
         } : []
+        let spotlightText = Self.spotlightText(text)
+        // Only punctuation: nothing Spotlight can match.
+        guard !spotlightText.isEmpty else { return publish(State(status: .empty, issues: issues)) }
         if let answer = rememberedAnswer(for: text) {
             return publish(State(status: answer.files.isEmpty ? .empty : .results, files: answer.files, issues: answer.issues))
         }
@@ -117,14 +129,16 @@ final class LaunchaSpotlight {
             }
             if let provider = self.provider {
                 do {
-                    let urls = try await provider(text)
+                    let urls = try await provider(spotlightText).filter {
+                        spotlightText == text || Self.nameContains($0.lastPathComponent, text)
+                    }
                     guard !Task.isCancelled, self.generation == token else { return }
                     await self.complete(urls, text: text, token: token)
                 } catch {
                     guard !Task.isCancelled else { return }
                     self.fail(error.localizedDescription, token: token, issue: .access(error, at: self.policy.home))
                 }
-            } else { self.startQuery(text, token: token) }
+            } else { self.startQuery(text, spotlightText: spotlightText, token: token) }
         }
     }
 
@@ -141,7 +155,7 @@ final class LaunchaSpotlight {
         }.sorted { $0.path < $1.path }
     }
 
-    private func startQuery(_ text: String, token: UUID) {
+    private func startQuery(_ text: String, spotlightText: String, token: UUID) {
         let scopes = Self.searchScopes(policy)
         // An empty scope list would search the whole Mac.
         guard !scopes.isEmpty else {
@@ -150,7 +164,7 @@ final class LaunchaSpotlight {
         }
         let query = NSMetadataQuery()
         // Wildcards in the user's input are literal, not Spotlight pattern operators.
-        query.predicate = NSPredicate(format: "%K CONTAINS[cd] %@", NSMetadataItemFSNameKey, text)
+        query.predicate = NSPredicate(format: "%K CONTAINS[cd] %@", NSMetadataItemFSNameKey, spotlightText)
         query.searchScopes = scopes
         // Recently changed files first, so the inspection limit drops old files, not late names.
         query.sortDescriptors = [NSSortDescriptor(key: NSMetadataItemFSContentChangeDateKey, ascending: false)]
@@ -160,14 +174,18 @@ final class LaunchaSpotlight {
             Task { @MainActor [weak self] in
                 guard let self, self.generation == token, let query = self.query else { return }
                 query.disableUpdates()
-                // Bound inspection too, not just the number displayed.
-                if query.resultCount > 2000 {
-                    self.state.issues.append(.init(kind: .limit, url: self.policy.home, message: "Spotlight inspection limit reached."))
-                }
-                let urls = (0..<min(query.resultCount, 2000)).compactMap { index -> URL? in
+                // Keep only names with the full text, then bound inspection too, not just the number displayed.
+                var urls: [URL] = []
+                for index in 0..<query.resultCount {
                     guard let item = query.result(at: index) as? NSMetadataItem,
-                          let path = item.value(forAttribute: NSMetadataItemPathKey) as? String else { return nil }
-                    return URL(fileURLWithPath: path)
+                          let path = item.value(forAttribute: NSMetadataItemPathKey) as? String else { continue }
+                    let name = item.value(forAttribute: NSMetadataItemFSNameKey) as? String ?? (path as NSString).lastPathComponent
+                    guard spotlightText == text || Self.nameContains(name, text) else { continue }
+                    guard urls.count < 2000 else {
+                        self.state.issues.append(.init(kind: .limit, url: self.policy.home, message: "Spotlight inspection limit reached."))
+                        break
+                    }
+                    urls.append(URL(fileURLWithPath: path))
                 }
                 self.stopQuery()
                 self.work = Task { [weak self] in await self?.complete(urls, text: text, token: token) }

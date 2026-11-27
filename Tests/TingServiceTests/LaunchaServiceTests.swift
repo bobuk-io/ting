@@ -362,6 +362,44 @@ final class LaunchaServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testSpotlightDropsTrailingPunctuationAndMatchesTheFullText() async throws {
+        XCTAssertEqual(LaunchaSpotlight.spotlightText("img_"), "img")
+        XCTAssertEqual(LaunchaSpotlight.spotlightText("0548."), "0548")
+        XCTAssertEqual(LaunchaSpotlight.spotlightText("IMG_0"), "IMG_0")
+        XCTAssertEqual(LaunchaSpotlight.spotlightText("_0548"), "_0548")
+        XCTAssertEqual(LaunchaSpotlight.spotlightText("_."), "")
+        let home = try temporary()
+        let wanted = home.appendingPathComponent("k_IMG_0548.png")
+        let other = home.appendingPathComponent("img-other.png")
+        try Data().write(to: wanted)
+        try Data().write(to: other)
+        let texts = SpotlightTexts()
+        let service = LaunchaSpotlight(home: home, protectedFolders: .allowed, debounce: .zero) { text in
+            texts.add(text)
+            return [wanted, other]
+        }
+        // Spotlight gets `img`; only names that contain `img_` are kept.
+        service.search("img_")
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(service.state.status, .results)
+        XCTAssertEqual(service.state.files.map(\.url.lastPathComponent), ["k_IMG_0548.png"])
+        XCTAssertEqual(texts.all, ["img"])
+        // Only punctuation: no Spotlight query, an empty result.
+        service.search("_")
+        XCTAssertEqual(service.state.status, .empty)
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(texts.all, ["img"])
+    }
+
+    func testFileRowsHighlightTheTypedTextWithPunctuation() {
+        XCTAssertEqual(LaunchaRow.literalPositions(of: "img_", in: "k_IMG_0548.png"), [2, 3, 4, 5])
+        XCTAssertEqual(LaunchaRow.literalPositions(of: "_0548.", in: "k_IMG_0548.png"), [5, 6, 7, 8, 9, 10])
+        XCTAssertEqual(LaunchaRow.literalPositions(of: "cafe", in: "Café menu.pdf"), [0, 1, 2, 3])
+        XCTAssertNil(LaunchaRow.literalPositions(of: "png", in: "k_IMG_0548"), "a hidden extension falls back to fuzzy")
+        XCTAssertNil(LaunchaRow.literalPositions(of: "", in: "k_IMG_0548.png"))
+    }
+
+    @MainActor
     func testSpotlightIncompleteEmptyAndFailure() async throws {
         let home = try temporary()
         let service = LaunchaSpotlight(home: home, debounce: .zero) { _ in [] }
