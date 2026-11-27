@@ -95,12 +95,14 @@ final class MicroAppInteractionFlowTests: XCTestCase {
         let choices = MicroAppInteractionModel(.choose(prompt: "Pick", choices: [
             .init(id: 0, title: "Report", subtitle: "PDF", value: "path"),
             .init(id: 1, title: "Question", value: "q")]))
+        XCTAssertEqual(choices.filteredChoices.map(\.value), ["path", "q"])
         choices.query = "pdf"
         XCTAssertEqual(choices.filteredChoices.map(\.value), ["path"])
         choices.query = "missing"
         XCTAssertNil(choices.selectedID)
         XCTAssertNil(choices.answer())
         choices.query = ""
+        XCTAssertEqual(choices.filteredChoices.map(\.value), ["path", "q"])
         choices.move(1)
         XCTAssertEqual(choices.answer(), "q")
     }

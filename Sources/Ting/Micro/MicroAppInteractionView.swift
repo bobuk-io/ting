@@ -8,14 +8,21 @@ final class MicroAppInteractionModel {
     let request: MicroAppInteraction
     var text: String
     var query = "" {
-        didSet { selectedID = filteredChoices.first?.id }
+        didSet {
+            filteredChoices = query.isEmpty ? choices : MicroAppInteraction.filterChoices(choices, matching: query)
+            selectedID = filteredChoices.first?.id
+        }
     }
     var selectedID: Int?
     var error: String?
+    /// The choices matching `query`, filtered once per change of the query: the view reads
+    /// them several times per keystroke, and fuzzy matching a long list on each read lags typing.
+    private(set) var filteredChoices: [MicroAppInteraction.Choice] = []
 
     init(_ request: MicroAppInteraction) {
         self.request = request
         if case .ask(_, let initial, _, _, _) = request { text = initial } else { text = "" }
+        filteredChoices = choices
         selectedID = choices.first?.id
     }
 
@@ -30,10 +37,6 @@ final class MicroAppInteractionModel {
     var showsDetails: Bool { if case .choose(_, _, let details) = request { return details }; return false }
     var selectedChoice: MicroAppInteraction.Choice? { filteredChoices.first { $0.id == selectedID } }
     var multiline: Bool { if case .ask(_, _, _, let value, _) = request { return value }; return false }
-    var filteredChoices: [MicroAppInteraction.Choice] {
-        guard !query.isEmpty else { return choices }
-        return MicroAppInteraction.filterChoices(choices, matching: query)
-    }
 
     func move(_ delta: Int) {
         let list = filteredChoices
