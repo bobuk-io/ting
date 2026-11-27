@@ -217,10 +217,12 @@ final class WindowAccessibilityWorker: @unchecked Sendable {
               let sizeValue = AXValueCreate(.cgSize, &size) else {
             throw WindowManagementError.operationFailed
         }
-        // Some apps adjust their minimum size. Position again after resizing so the requested edge stays pinned.
-        guard AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue) == .success,
-              AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue) == .success,
-              AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue) == .success else {
+        // Resize before moving: moved first at its old size, a window can straddle two displays,
+        // and some apps (Zed) then settle on a different size than requested. Resize again on the
+        // destination, which macOS may have constrained while the window crossed displays.
+        guard AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue) == .success,
+              AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue) == .success,
+              AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue) == .success else {
             throw WindowManagementError.operationFailed
         }
     }
