@@ -26,6 +26,7 @@ final class MicroAppInteractionRunnerTests: XCTestCase {
           - text: '[{"title":"Report","value":"/tmp/a b"}]'
           - choose: Pick ${steps.answer}
             id: file
+            details: true
           - text: ${steps.answer}|${steps.file}|${input}
         """)
         var runner = runner()
@@ -39,8 +40,9 @@ final class MicroAppInteractionRunnerTests: XCTestCase {
                 XCTAssertTrue(required)
                 return "hello"
             case .preview: XCTFail("unexpected preview"); return ""
-            case .choose(let prompt, let choices):
+            case .choose(let prompt, let choices, let details):
                 XCTAssertEqual(prompt, "Pick hello")
+                XCTAssertTrue(details)
                 return choices[0].value
             }
         }
