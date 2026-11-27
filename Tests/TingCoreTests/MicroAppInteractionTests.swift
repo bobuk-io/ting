@@ -42,13 +42,21 @@ final class MicroAppInteractionTests: XCTestCase {
           - ask: More about ${steps.topic}
             default: ${input}
           - choose: Pick one
+          - choose: Pick a snippet
+            details: true
         """
         let app = try MicroAppChecker.check(source, fileName: "test.yaml").get()
-        XCTAssertEqual(app.steps.map(\.kind), [.ask, .ask, .choose])
+        XCTAssertEqual(app.steps.map(\.kind), [.ask, .ask, .choose, .choose])
         guard case .ask(let ask) = app.steps[0].action else { return XCTFail("not ask") }
         XCTAssertTrue(ask.multiline)
         XCTAssertFalse(ask.required)
+        guard case .choose(_, let plain) = app.steps[2].action, case .choose(_, let details) = app.steps[3].action else {
+            return XCTFail("not choose")
+        }
+        XCTAssertFalse(plain)
+        XCTAssertTrue(details)
         for invalid in [source.replacingOccurrences(of: "multiline: true", with: "multiline: yes"),
+                        source.replacingOccurrences(of: "details: true", with: "details: yes"),
                         source.replacingOccurrences(of: "choose: Pick one", with: "choose: Pick one\n    default: x"),
                         source.replacingOccurrences(of: "required: false", with: "required: false\n    stream: true")] {
             guard case .failure = MicroAppChecker.check(invalid, fileName: "test.yaml") else {

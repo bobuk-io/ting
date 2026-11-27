@@ -317,6 +317,10 @@ confirm. There is no custom answer or multiple selection. Even one option
 needs confirmation. Filtering to no matches disables Continue; clear the
 filter to see the list again.
 
+`details: true` widens the panel and shows the selected option's `value` beside
+the list, as monospaced, selectable text: useful when the value is longer than
+its title, such as a snippet. Filtering still matches titles and subtitles only.
+
 Esc cancels the whole micro-app without running later steps. Answers are not
 remembered between runs. Time spent waiting for either answer does not count
 toward the micro-app or enclosing library timeout. Interactive steps do not

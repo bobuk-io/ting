@@ -229,7 +229,7 @@ public enum MicroAppChecker {
         .ai: ["provider", "model", "key", "system", "base_url", "temperature", "max_tokens", "effort"],
         .chatta: ["agent", "model", "effort", "system", "access", "cwd"],
         .preview: [], .lowkey: ["action", "label", "file", "field", "value", "as"], .text: [], .json: [], .open: ["app"], .notify: ["title"], .call: [], .keys: [], .paste: [],
-        .choose: [], .ask: ["default", "placeholder", "multiline", "required"],
+        .choose: ["details"], .ask: ["default", "placeholder", "multiline", "required"],
     ]
     /// The most key presses of one `keys` step.
     public static let maxKeyPresses = 100
@@ -1033,7 +1033,8 @@ public enum MicroAppChecker {
             case .paste:
                 action = template(value, k, oneLine: false, ctx: &ctx, usage: &usage).map { .paste($0) }
             case .choose:
-                action = template(value, k, ctx: &ctx, usage: &usage).map { .choose($0) }
+                let details = keys["details"].flatMap { bool($0.value, "\(what).details") } ?? false
+                action = template(value, k, ctx: &ctx, usage: &usage).map { .choose($0, details: details) }
             case .ask:
                 let prompt = template(value, k, ctx: &ctx, usage: &usage)
                 let initial = keys["default"].flatMap {

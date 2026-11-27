@@ -533,7 +533,10 @@ final class MicroAppFlowController: NSObject {
     }
 
     private func desiredCardWidth(for state: MicroAppFlowSession.State) -> Double {
-        usesResultWidth(for: state) ? Double(session.resultCardWidth) : MicroAppPanelLayout.defaultCardWidth
+        if case .interaction = state, session.interaction?.showsDetails == true {
+            return max(MicroAppPanelLayout.choiceDetailsCardWidth, Double(session.resultCardWidth))
+        }
+        return usesResultWidth(for: state) ? Double(session.resultCardWidth) : MicroAppPanelLayout.defaultCardWidth
     }
 
     private func applyPanelWidth(for state: MicroAppFlowSession.State, panel: MicroAppFlowPanel) {

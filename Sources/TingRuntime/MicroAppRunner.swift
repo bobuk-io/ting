@@ -571,9 +571,10 @@ struct MicroAppPipeline: Sendable {
             }
             try await runProgram(step, executable: python, arguments: ["-I", "-c", code], code: code, input: stepInput, source: source,
                                  output: output, budget: budget)
-        case .choose(let prompt):
+        case .choose(let prompt, let details):
             let choices = try MicroAppInteraction.choices(from: String(decoding: stepInput, as: UTF8.self))
-            let request = MicroAppInteraction.choose(prompt: try render(prompt, input: stepInput), choices: choices)
+            let request = MicroAppInteraction.choose(prompt: try render(prompt, input: stepInput), choices: choices,
+                                                     details: details)
             output.write(Data(try await interact(request).utf8))
         case .ask(let ask):
             let request = MicroAppInteraction.ask(

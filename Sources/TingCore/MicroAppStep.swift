@@ -144,7 +144,8 @@ public struct MicroAppStep: Equatable, Sendable {
         case ai(AIStep)
         case chatta(ChattaStep)
         case text(MicroAppTemplate)
-        case choose(MicroAppTemplate)
+        /// `details`: show the selected option's value beside the list.
+        case choose(MicroAppTemplate, details: Bool)
         case ask(AskStep)
         case json(MicroAppJSONPath)
         case open(target: MicroAppTemplate, app: MicroAppTemplate?)
@@ -248,7 +249,7 @@ public struct MicroAppStep: Equatable, Sendable {
             result += [a.prompt, a.model] + [a.key, a.system, a.baseURL, a.temperature, a.maxTokens, a.effort].compactMap { $0 }
         case .chatta(let c):
             result += [c.prompt] + [c.model, c.effort, c.system, c.cwd].compactMap { $0 }
-        case .text(let t), .choose(let t):
+        case .text(let t), .choose(let t, _):
             result.append(t)
         case .ask(let ask):
             result += [ask.prompt] + [ask.defaultValue, ask.placeholder].compactMap { $0 }

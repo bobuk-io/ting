@@ -19,13 +19,14 @@ public enum MicroAppInteraction: Equatable, Sendable {
     }
 
     case preview(text: String, style: MicroApp.OutputStyle)
-    case choose(prompt: String, choices: [Choice])
+    /// `details`: the selected option's value is shown beside the list.
+    case choose(prompt: String, choices: [Choice], details: Bool = false)
     case ask(prompt: String, defaultValue: String, placeholder: String, multiline: Bool, required: Bool)
 
     public var prompt: String {
         switch self {
         case .preview: "Preview"
-        case .choose(let prompt, _), .ask(let prompt, _, _, _, _): prompt
+        case .choose(let prompt, _, _), .ask(let prompt, _, _, _, _): prompt
         }
     }
 
@@ -72,7 +73,7 @@ public enum MicroAppInteraction: Equatable, Sendable {
     public func validate(_ answer: String) throws -> String {
         switch self {
         case .preview: return ""
-        case .choose(_, let choices):
+        case .choose(_, let choices, _):
             guard choices.contains(where: { $0.value == answer }) else { throw InvalidInput("Choose an available option") }
         case .ask(_, _, _, _, let required):
             if required && answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

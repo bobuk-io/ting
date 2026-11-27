@@ -242,6 +242,10 @@ public enum MicroAppFormLayout {
 public enum MicroAppPanelLayout {
     /// Default card width for dialogs (approval, forms, non-preview prompts) and default result panels.
     public static let defaultCardWidth: Double = Double(MicroAppsSettings.defaultResultWidth)
+    /// Minimum card width of a `choose` with `details`: the list plus the value beside it.
+    public static let choiceDetailsCardWidth: Double = 820
+    /// Width of the option list when details are shown beside it.
+    public static let choiceDetailsListWidth: Double = 300
     /// Horizontal space around the card inside the window, for its shadow.
     public static let panelHorizontalMargin: Double = 60
     /// Horizontal screen margin kept outside the panel.

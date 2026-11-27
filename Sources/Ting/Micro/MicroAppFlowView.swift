@@ -39,7 +39,8 @@ struct MicroAppFlowView: View {
                 }
             case .interaction(let app):
                 if let model = session.interaction {
-                    let cardWidth = model.isPreview ? session.effectiveCardWidth : CGFloat(MicroAppPanelLayout.defaultCardWidth)
+                    let cardWidth = model.isPreview || model.showsDetails
+                        ? session.effectiveCardWidth : CGFloat(MicroAppPanelLayout.defaultCardWidth)
                     Card(title: app.shownName, showHeader: session.showHeader, width: cardWidth,
                          footer: model.isChoice ? ["↑↓ choose", "↩ continue", "esc cancel"] :
                             [model.multiline ? "⌘↩ continue" : "↩ continue", "esc cancel"]) {
