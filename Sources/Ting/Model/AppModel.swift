@@ -326,6 +326,11 @@ final class AppModel {
         if microAppIssues != catalog.issues { microAppIssues = catalog.issues }
     }
 
+    func installGalleryMicroApp(_ data: Data, listing: MicroAppGallery.Listing) throws {
+        try microStore.installFromGallery(data, listing: listing)
+        applyMicroApps(microStore.load())
+    }
+
     /// The loaded micro-apps, for the bindings editor and the Settings list.
     var microCatalog: MicroAppCatalog { MicroAppCatalog(entries: microApps) }
 

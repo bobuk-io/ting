@@ -156,15 +156,20 @@ latest published version.
   resolved DNS answers and redirects. These checks do not pin the connection's
   DNS result: DNS rebinding remains a limitation. Keep previews off on networks
   where that risk is unacceptable. The site learns the address and request time.
+- Opening the Micro-app Gallery or clicking Refresh fetches its index from
+  `raw.githubusercontent.com/bobuk-io/ting`. Installing fetches only the selected
+  YAML from the same repo, without cookies or redirects. The SHA-256 in the
+  index detects a mismatch; it is not a signature. Install never runs or approves
+  code, replaces a local micro-app, or updates an installed copy automatically.
 - Ting has no accounts, analytics or project servers. Apart from what your
-  approved micro-apps do and the link previews above, its only network access is Sparkle's update
+  approved micro-apps do, the gallery, and the link previews above, its only network access is Sparkle's update
   check against the public feed `https://bobuk.io/apps/ting/appcast.xml`
   (Ting 0.6.1 and older:
   `https://github.com/bobuk-io/ting/releases/latest/download/appcast.xml`) and
   the download of a newer release from GitHub. The feed only names the release;
   the archive is accepted only with the signature below. A copy that Homebrew
-  installed does neither; it reaches the network only through the Homebrew
-  update described below, which you start yourself.
+  installed does neither; it can update through the Homebrew flow described
+  below, which you start yourself.
 - Sparkle accepts an update only if the archive's EdDSA signature matches the
   public key built into the app and the new app passes macOS code signature
   checks. Development builds contain no feed and never update.

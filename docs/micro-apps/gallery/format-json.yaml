@@ -1,0 +1,14 @@
+format: ting.microapp/2
+name: Format JSON
+description: Format clipboard JSON with sorted keys and copy it back.
+
+input: clipboard
+steps:
+  - python: |
+      import json, sys
+      data = json.loads(sys.stdin.read())
+      formatted = json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False)
+      sys.stdout.write(formatted)
+output:
+  to: [clipboard, panel]
+  as: code

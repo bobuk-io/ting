@@ -63,6 +63,33 @@ final class MicroAppStore {
         return catalog
     }
 
+    /// Installs without running or approving the app. Check the live folder, not the watched
+    /// snapshot: a local file may have appeared while the download was in flight.
+    func installFromGallery(_ data: Data, listing: MicroAppGallery.Listing) throws {
+        try listing.validate(data, maxTimeLimit: maxTimeLimit)
+        try SafeFile.prepareDirectory(folderURL)
+        let existing = readFiles(libraries: MicroAppLibraries.read(folder: librariesURL))
+        guard !existing.contains(where: { file, result, _ in
+            if file == listing.fileName { return true }
+            switch result {
+            case .success(let app): return app.id == listing.id
+            case .failure(let problem): return problem.id == listing.id
+            }
+        }) else { throw MicroAppGallery.Problem.alreadyExists }
+
+        let destination = folderURL.appendingPathComponent(listing.fileName)
+        let staged = folderURL.appendingPathComponent(".gallery-\(UUID().uuidString)")
+        try SafeFile.write(data, to: staged)
+        defer { try? FileManager.default.removeItem(at: staged) }
+        // A hard link publishes the complete file atomically and fails if anything (even a
+        // dangling symlink) already occupies the destination. The watcher ignores the stage file.
+        guard link(staged.path, destination.path) == 0 else {
+            let code = errno
+            if code == EEXIST { throw MicroAppGallery.Problem.alreadyExists }
+            throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
+        }
+    }
+
     /// Loads again after every change in the folder, in its files, or when the folder appears
     /// or disappears. `onChange` gets the list before and after the change.
     func watch(onChange: @escaping (_ previous: MicroAppCatalog, _ current: MicroAppCatalog) -> Void) {

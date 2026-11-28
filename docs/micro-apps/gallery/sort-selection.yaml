@@ -1,0 +1,13 @@
+format: ting.microapp/2
+name: Sort selected lines
+description: Sort selected lines and replace the selection.
+tools: [sort]
+
+context: [selection]
+input: none
+steps:
+  # Use UTF-8 to sort non-Latin text too.
+  - command: LC_ALL=en_US.UTF-8 sort
+    stdin: ${context.selection.text}
+output:
+  to: [app]

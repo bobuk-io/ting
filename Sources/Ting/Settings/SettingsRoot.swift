@@ -530,12 +530,15 @@ private struct AdvancedSettings: View {
 private struct MicroAppsSection: View {
     @Environment(AppModel.self) private var model
     @State private var folderError: String?
+    @State private var showingGallery = false
 
     var body: some View {
         Section {
             LabeledContent("Folder") {
                 Text(model.microStore.displayPath).font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
             }
+            Button("Browse Gallery…", systemImage: "square.stack.3d.up") { showingGallery = true }
+                .sheet(isPresented: $showingGallery) { MicroAppGalleryView().environment(model) }
             let working = model.microApps.filter { !$0.isBroken }.count
             let broken = model.microApps.count - working
             Text(model.microApps.isEmpty ? "No micro-apps."
@@ -661,7 +664,7 @@ private struct MicroAppList: View {
 }
 
 /// Click to record the global hotkey that starts a micro-app without the leader; ✕ removes it.
-private struct MicroHotkeyCell: View {
+struct MicroHotkeyCell: View {
     let micro: String
     @Environment(AppModel.self) private var model
     @State private var recording = HotkeyRecording()

@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "listings": [
+    {
+      "id": "format-json",
+      "title": "Format JSON",
+      "description": "Pretty-print JSON and sort object keys.",
+      "dataAccess": "Reads clipboard text, shows the result, and replaces the clipboard. No network requests.",
+      "requirements": "python3 (Xcode Command Line Tools).",
+      "minimumTingVersion": "0.7.28",
+      "sha256": "ec6fca2f9ca3eefd984cbb62e9225501cce713fa348fc820e396dea32be9a106"
+    },
+    {
+      "id": "count-text",
+      "title": "Count Words",
+      "description": "Count words, characters, and newlines.",
+      "dataAccess": "Reads clipboard text and shows counts in Ting. No network requests.",
+      "requirements": "macOS command-line tools: wc and awk.",
+      "minimumTingVersion": "0.7.28",
+      "sha256": "93ee9078268f03489e5fa4d8439410672439db690683af75f505f0a63ae8cc85"
+    },
+    {
+      "id": "sort-selection",
+      "title": "Sort Selected Lines",
+      "description": "Sort lines in the current text selection.",
+      "dataAccess": "Reads selected text and pastes sorted lines back into the front app. No network requests.",
+      "requirements": "Accessibility permission, an editable selection, and macOS sort.",
+      "minimumTingVersion": "0.7.28",
+      "sha256": "8da4f90a56d4ed9368aeccb166629d69c8c7eb0d644da28d9f206ed4ba9af98a"
+    },
+    {
+      "id": "copy-page-link",
+      "title": "Copy Page Link",
+      "description": "Copy the front browser tab as a Markdown link.",
+      "dataAccess": "Reads the tab title and URL and writes a link to the clipboard. No network requests.",
+      "requirements": "A supported browser with an open tab and Automation permission for that browser.",
+      "minimumTingVersion": "0.7.28",
+      "sha256": "78c19a18d8f7315d1cee4a5ac632a44e4c84653d8755fdbbcf478fa43bcd56f7"
+    },
+    {
+      "id": "finder-checksum",
+      "title": "Finder Checksum",
+      "description": "Show SHA-256 checksums for files selected in Finder.",
+      "dataAccess": "Reads the selected paths and file contents, and shows hashes in Ting. No network requests.",
+      "requirements": "Automation permission for Finder, readable files, and macOS shasum.",
+      "minimumTingVersion": "0.7.28",
+      "sha256": "35c81246086659de067c8fb3b6e8448d15e9e59a0c0acbd73f624510af7137bf"
+    },
+    {
+      "id": "change-case",
+      "title": "Change Case",
+      "description": "Convert text to uppercase, lowercase, or title case.",
+      "dataAccess": "Reads clipboard text, shows the result, and replaces the clipboard. No network requests.",
+      "requirements": "python3 (Xcode Command Line Tools).",
+      "minimumTingVersion": "0.7.28",
+      "sha256": "090db79c35e7edee72c61c06e0c4e9d97b7a4822bb66bf2f9c73714c06733e68"
+    },
+    {
+      "id": "app-info",
+      "title": "About the Active App",
+      "description": "Show the name, bundle ID, and path of the active app, plus its front window details.",
+      "dataAccess": "Reads app and window metadata, which may include a document path or URL. Shows it in Ting; no network requests.",
+      "requirements": "Accessibility permission for window details. No additional tools.",
+      "minimumTingVersion": "0.7.28",
+      "sha256": "564ef957cddbedd06b8d6048331b4aa6bbde75f7c19612845b462fa56ed7ea03"
+    }
+  ]
+}

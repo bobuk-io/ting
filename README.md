@@ -64,7 +64,7 @@ On first launch, choose a non-modifier key to use as your leader. If you switch 
 
 ## Micro-apps
 
-Micro-apps are small, user-approved tools defined as YAML files. A tool can ask for input, read the clipboard or current context, run shell or Python code, make HTTP, AI or local ACP (`chatta:`) requests, and show or paste its result. The folder starts empty; Ting installs no scripts and has no built-in editor. **Settings › Micro-apps** lets you adjust the maximum timeout, result panel width, and result text size.
+Micro-apps are small, user-approved tools defined as YAML files. A tool can ask for input, read the clipboard or current context, run shell or Python code, make HTTP, AI or local ACP (`chatta:`) requests, and show or paste its result. The folder starts empty. In **Settings › Micro-apps › Browse Gallery**, install a [curated micro-app](docs/micro-apps/gallery/) and optionally record a hotkey. Install never runs or approves it. **Settings › Micro-apps** also lets you adjust the maximum timeout, result panel width, and result text size.
 
 An approved micro-app can read a snapshot of Clipbawd history with `${clipboard[-1]}` (newest), `${clipboard[-2]}` (previous), and so on. Text, links and colors return text; files return newline-separated paths. Images, videos, missing entries, disabled history and headless runs fail explicitly. The snapshot stays fixed for the run. Use `env:` for shell commands, never interpolate history into shell code:
 
