@@ -3,7 +3,7 @@ import AppKit
 import SwiftUI
 import TingCore
 
-/// The icons the popover offers. Any other emoji, letter or SF Symbol name can be typed.
+/// The symbols the popover offers. An emoji, a letter or any other SF Symbol name can be typed.
 enum MicroIconChoices {
     /// Only the names this macOS has are shown.
     static let symbols = [
@@ -15,13 +15,6 @@ enum MicroIconChoices {
         "number", "function", "chart.bar", "curlybraces", "chevron.left.forwardslash.chevron.right", "cpu", "keyboard", "display",
         "lightbulb", "brain", "person", "house", "cart", "creditcard", "map", "location", "airplane", "sun.max", "moon", "ladybug",
     ].filter { NSImage(systemSymbolName: $0, accessibilityDescription: nil) != nil }
-
-    static let emoji = [
-        "🌐", "🔍", "📋", "📝", "✏️", "🔤", "🔠", "🈯", "🗣️", "💬", "🤖", "✨", "⚡", "🔧", "🛠️", "⚙️", "📁", "📦", "🔗", "📎",
-        "✉️", "📅", "⏰", "⏱️", "🔔", "⭐", "❤️", "🔖", "🏷️", "🚩", "📌", "🔒", "🔑", "📷", "🖼️", "▶️", "🎵", "🎤", "🔊", "☁️",
-        "🔄", "🗑️", "✂️", "🔢", "📊", "💻", "⌨️", "🖥️", "💡", "🧠", "👤", "🏠", "🛒", "💳", "🗺️", "📍", "✈️", "☀️", "🌙", "🚀",
-        "🎯", "🧪", "🐞", "🧹", "🇬🇧", "🇩🇪", "🇫🇷", "🇪🇸", "🇺🇦", "🇯🇵",
-    ]
 }
 
 /// The icon of a micro-app as a button; a click opens the chooser. The choice goes to `microIcons`
@@ -58,7 +51,7 @@ struct MicroIconCell: View {
     }
 }
 
-/// A grid of symbols and emoji, a field for any other icon, and the way back to the icon of the file.
+/// A grid of symbols, a field for any other icon, and the way back to the icon of the file.
 /// `choose` gets the icon text, or nil to remove the choice.
 struct MicroIconChooser: View {
     let selected: MicroIcon?
@@ -87,10 +80,8 @@ struct MicroIconChooser: View {
         VStack(alignment: .leading, spacing: 8) {
             title("Symbols")
             grid(MicroIconChoices.symbols)
-            title("Emoji")
-            grid(MicroIconChoices.emoji)
             Divider()
-            title("Any other")
+            title("Emoji, letter or another symbol")
             HStack(spacing: 6) {
                 MicroIconView(icon: canUseCustom ? MicroIcon(custom) : nil, size: 16)
                     .foregroundStyle(Color.tingInk.opacity(0.8)).opacity(canUseCustom ? 1 : 0.25)

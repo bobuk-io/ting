@@ -211,7 +211,6 @@ struct HoverRowStyle: ButtonStyle {
     }
 }
 
-/// App icon for an `.app` item, a globe for a URL, a folder for a group.
 /// The icon of a micro-app: its emoji or letter, its SF Symbol, or the terminal symbol when it
 /// has none or macOS does not know the symbol name. The caller gives the colour of a symbol or a letter.
 struct MicroIconView: View {
@@ -234,6 +233,7 @@ struct MicroIconView: View {
     }
 }
 
+/// App icon for an `.app` item, a globe for a URL, a folder for a group.
 struct ItemIcon: View {
     let item: Item
     var size: CGFloat = 18

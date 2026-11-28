@@ -218,6 +218,8 @@ final class MicroAppStoreTests: XCTestCase {
         XCTAssertEqual(model.leader.session.microApps.icon("a"), .glyph("🚀"))
         XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), text)
 
+        model.setMicroIcon("Not an icon", for: "a")
+        XCTAssertEqual(model.config.microIcons, ["a": "🚀"])
         model.setMicroIcon(nil, for: "a")
         XCTAssertEqual(model.config.microIcons, [:])
         XCTAssertEqual(model.leader.session.microApps.icon("a"), .glyph("🌐"))

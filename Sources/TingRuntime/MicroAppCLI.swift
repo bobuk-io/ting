@@ -13,8 +13,9 @@ package enum MicroAppCLI {
                      [--libs DIR] [--verbose] [--allow-effects]
 
     check-config reads config.json (default: $TING_CONFIG, else ~/.config/ting/config.json) and
-    reports format errors, binding problems and micro bindings or microHotkeys to ids that the
-    micro-apps folder next to it does not have. It changes nothing.
+    reports format errors, binding problems, microIcons values that are not icons, and micro
+    bindings, microHotkeys or microIcons to ids that the micro-apps folder next to it does not
+    have. It changes nothing.
     Libraries (call, inherit) come from libs/ next to FILE.yaml, or from --libs DIR.
     A file inside a folder named libs is checked as a library.
 
@@ -318,8 +319,9 @@ package enum MicroAppCLI {
                 problems.append("\(shortcut.hotkey.display): \(problem)")
             }
         }
-        for (micro, icon) in config.microIcons.sorted(by: { $0.key < $1.key }) where MicroIcon(icon) == nil {
-            problems.append("microIcons: the icon of `\(micro)` must be \(MicroIcon.rule)")
+        for (micro, icon) in config.microIcons.sorted(by: { $0.key < $1.key }) {
+            if MicroIcon(icon) == nil { problems.append("microIcons: the icon of `\(micro)` must be \(MicroIcon.rule)") }
+            if let problem = catalog.resolve(micro).problem(id: micro, folder: folder.path) { problems.append("microIcons: \(problem)") }
         }
         if problems.isEmpty {
             out("\(path): ok\n")

@@ -408,8 +408,10 @@ final class AppModel {
     }
 
     /// The icon of a micro-app, set in Settings; nil or an empty text removes it, so the `icon` key of the file shows again.
+    /// A text that is not an icon changes nothing.
     func setMicroIcon(_ icon: String?, for micro: String) {
         let text = icon?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard text.isEmpty || MicroIcon(text) != nil else { return }
         update { $0.microIcons[micro] = text.isEmpty ? nil : text }
     }
 
@@ -673,7 +675,7 @@ final class AppModel {
             applyMicroApps(microStore.load())
         } else {
             // Binding labels name the micro-apps in launcha; `microIcons` gives their icons there and in the leader menu.
-            var catalog = microCatalog
+            var catalog = microStore.catalog
             catalog.iconOverrides = next.microIcons
             leader.setMicroApps(catalog)
             launchaModel.setMicroApps(catalog.launchaCandidates(bindings: next.items), folder: microStore.folderURL)

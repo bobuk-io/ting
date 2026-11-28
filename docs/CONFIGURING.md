@@ -240,7 +240,7 @@ an icon: one character (an emoji or a letter) or an SF Symbol name in lower case
 such as `globe`. The author sets it with the `icon` key of the micro-app file
 (see FORMAT.md). To change the icon without touching the file, which would ask
 for approval again, click the Icon cell in Settings › Micro-apps and pick a symbol
-or an emoji (or type any other one), or add it to `microIcons` at the top level
+(or type an emoji, a letter or another symbol name), or add it to `microIcons` at the top level
 of `config.json`, by micro-app id:
 
 ```json
@@ -249,7 +249,8 @@ of `config.json`, by micro-app id:
 
 `microIcons` wins over the `icon` key; “Use the icon of the file” in the Icon
 cell removes the entry.
-`ting-micro check-config` reports a value that is not an icon.
+`ting-micro check-config` reports a value that is not an icon and an id that the
+micro-apps folder does not have.
 
 ### Window management
 
