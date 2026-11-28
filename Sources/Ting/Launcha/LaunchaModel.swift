@@ -41,6 +41,8 @@ struct LaunchaRow: Identifiable, Equatable {
     /// Secondary text: the folder of a file, with `~` for the home folder, or the
     /// description of a micro-app, or why a micro-app file does not work.
     var detail: String
+    /// The icon of a micro-app; `nil` shows the default one.
+    var microIcon: MicroIcon?
 
     var isApp: Bool {
         if case .app = kind { return true }
@@ -115,7 +117,9 @@ private enum LaunchaEntry {
             detail = "AI agent chat"
         }
         let match = candidate
-        return LaunchaRow(id: match.id, kind: kind, name: match.name, detail: detail)
+        var row = LaunchaRow(id: match.id, kind: kind, name: match.name, detail: detail)
+        if case .micro(let micro) = self { row.microIcon = micro.icon }
+        return row
     }
 }
 

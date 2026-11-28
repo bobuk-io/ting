@@ -318,6 +318,9 @@ package enum MicroAppCLI {
                 problems.append("\(shortcut.hotkey.display): \(problem)")
             }
         }
+        for (micro, icon) in config.microIcons.sorted(by: { $0.key < $1.key }) where MicroIcon(icon) == nil {
+            problems.append("microIcons: the icon of `\(micro)` must be \(MicroIcon.rule)")
+        }
         if problems.isEmpty {
             out("\(path): ok\n")
             return 0

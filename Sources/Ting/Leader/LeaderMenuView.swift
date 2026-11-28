@@ -87,7 +87,7 @@ private struct Row: View {
             PickerRow(selected: selected, palette: TingPickerStyle.palette) {
             HStack(spacing: PickerMetrics.columnSpacing) {
                 KeyCap(key: item.key, style: .sound)
-                ItemIcon(item: item, size: 16)
+                ItemIcon(item: item, size: 16, microIcon: microIcon)
                 Text(title)
                     .font(.system(size: 13, weight: .medium)).lineLimit(1)
                     .foregroundStyle(isBrokenMicro ? Color.tingMuted : Color.tingInk)
@@ -125,6 +125,11 @@ private struct Row: View {
         case .open(let panel): return panel.rawValue
         case .window(let command): return command.title
         }
+    }
+
+    private var microIcon: MicroIcon? {
+        if case .micro(let id) = item.action { return microApps.icon(id) }
+        return nil
     }
 
     /// A micro-app binding whose micro-app is missing or broken.

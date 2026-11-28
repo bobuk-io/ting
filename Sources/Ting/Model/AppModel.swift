@@ -318,7 +318,9 @@ final class AppModel {
         applyMicroApps(microStore.load())
     }
 
-    private func applyMicroApps(_ catalog: MicroAppCatalog) {
+    private func applyMicroApps(_ loaded: MicroAppCatalog) {
+        var catalog = loaded
+        catalog.iconOverrides = config.microIcons
         leader.setMicroApps(catalog)
         microFlow.setCatalog(catalog)
         launchaModel.setMicroApps(catalog.launchaCandidates(bindings: config.items), folder: microStore.folderURL)
@@ -327,7 +329,11 @@ final class AppModel {
     }
 
     /// The loaded micro-apps, for the bindings editor and the Settings list.
-    var microCatalog: MicroAppCatalog { MicroAppCatalog(entries: microApps) }
+    var microCatalog: MicroAppCatalog {
+        var catalog = MicroAppCatalog(entries: microApps)
+        catalog.iconOverrides = config.microIcons
+        return catalog
+    }
 
     /// Opens the micro-apps folder in Finder and creates it first when it is missing. The folder
     /// watch sees the new folder and loads it. Returns an error message when the folder cannot
@@ -399,6 +405,12 @@ final class AppModel {
     /// The one hotkey of a micro-app, set in Settings; nil removes it.
     func setMicroHotkey(_ hotkey: Hotkey?, for micro: String) {
         update { MicroShortcutRules.assign(hotkey, to: micro, in: &$0) }
+    }
+
+    /// The icon of a micro-app, set in Settings; nil or an empty text removes it, so the `icon` key of the file shows again.
+    func setMicroIcon(_ icon: String?, for micro: String) {
+        let text = icon?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        update { $0.microIcons[micro] = text.isEmpty ? nil : text }
     }
 
     /// The direct hotkey of a window command; nil removes it. A refused key keeps the old one.
@@ -660,8 +672,11 @@ final class AppModel {
         if reloadMicroApps && next.microApps.maxTimeout != previous.microApps.maxTimeout {
             applyMicroApps(microStore.load())
         } else {
-            // Binding labels name the micro-apps in launcha.
-            launchaModel.setMicroApps(microCatalog.launchaCandidates(bindings: next.items), folder: microStore.folderURL)
+            // Binding labels name the micro-apps in launcha; `microIcons` gives their icons there and in the leader menu.
+            var catalog = microCatalog
+            catalog.iconOverrides = next.microIcons
+            leader.setMicroApps(catalog)
+            launchaModel.setMicroApps(catalog.launchaCandidates(bindings: next.items), folder: microStore.folderURL)
         }
         syncingTheme = true
         theme.appearance = next.appearance.choice

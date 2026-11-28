@@ -106,7 +106,7 @@ struct BindingsSettings: View {
                 TableColumn("Keys") { row in keysCell(row) }.width(min: 170, ideal: 200)
                 TableColumn("Name") { row in
                     HStack {
-                        ItemIcon(item: row.item, size: 16)
+                        ItemIcon(item: row.item, size: 16, microIcon: microIcon(row.item))
                         TextField("Name", text: labelBinding(row)).textFieldStyle(.plain)
                             .font(row.item.isGroup ? .system(size: 13, weight: .semibold) : .body)
                     }
@@ -204,6 +204,11 @@ struct BindingsSettings: View {
             .controlSize(.small)
             .accessibilityLabel("Window command for \(row.item.label)")
         }
+    }
+
+    private func microIcon(_ item: Item) -> MicroIcon? {
+        if case .micro(let id) = item.action { return model.microCatalog.icon(id) }
+        return nil
     }
 
     /// The found micro-apps; a missing or broken current id stays in the list, marked, until another one is picked.

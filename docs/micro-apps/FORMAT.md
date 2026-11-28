@@ -54,6 +54,7 @@ name: DNS lookup                 # optional; shown in menus; default: the id
 description: Look up a domain.   # required, one line
 tools: [dig, whois]              # optional; programs the code needs on PATH
 hidden: false                    # optional; true: not listed in launcha
+icon: 🌐                         # optional; one emoji or letter, or an SF Symbol name
 remember: true                   # optional; false: do not offer the last values
 timeout: 60                      # optional; seconds for the whole run, 1 to microApps.maxTimeout (default 300)
 
@@ -80,6 +81,12 @@ output:                          # optional; without it nothing is shown or copi
   the first by file name works, the second is broken.
 - `name`, `description` and `prompt` are one line. `hidden`, `remember` and
   `required` are `true` or `false`, not `yes` or `"true"`.
+- `icon` is shown in the leader menu, launcha and Settings in place of the
+  terminal symbol: one character (an emoji such as `🌐` or a letter) or the name
+  of an SF Symbol in lower case, such as `globe` or `text.magnifyingglass`. A
+  symbol name macOS does not know shows the terminal symbol. The person can set
+  another icon in Settings › Micro-apps; that one is kept in `microIcons` of
+  `config.json` and wins over the file.
 - A file may also have `inherit: LIBRARY` (see [Inheriting a library](#inheriting-a-library))
   and `context: [SOURCE, …]` (see [Context](#context)).
 - Every param must be read by some step. Required params are always shown in
@@ -580,7 +587,7 @@ The file is the library with the file's keys over it:
 - `steps`: each item names a library step by `id` and changes only the keys it
   writes; maps inside (`params`, `env`, `headers`, `query`, `body`) merge key by
   key. A change cannot change the kind of a step or add a step;
-- the file keeps its own `id`, `name`, `hidden` and `remember`.
+- the file keeps its own `id`, `name`, `hidden`, `icon` and `remember`.
 
 A library param that no step reads any more, because step `params` set it, is
 not asked. Use `inherit` for micro-apps that differ only in values, such as one

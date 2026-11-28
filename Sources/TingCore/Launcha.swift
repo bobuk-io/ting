@@ -86,8 +86,12 @@ public struct LaunchaMicroCandidate: Equatable, Sendable, Identifiable {
     public var description: String
     /// Why a broken file does not work, in one line; `nil` for a working micro-app.
     public var problem: String?
+    /// `nil` shows the default icon.
+    public var icon: MicroIcon?
 
-    public init(candidate: LaunchaCandidate, start: LaunchaMicroStart, file: String, description: String, problem: String?) {
+    public init(candidate: LaunchaCandidate, start: LaunchaMicroStart, file: String, description: String, problem: String?,
+                icon: MicroIcon? = nil) {
+        self.icon = icon
         self.candidate = candidate
         self.start = start
         self.file = file
@@ -140,7 +144,7 @@ extension MicroAppCatalog {
             if let app = entry.app {
                 let name = label(for: entry) ?? app.shownName
                 return LaunchaMicroCandidate(candidate: .micro(id: app.id, name: name), start: .id(app.id),
-                                             file: entry.file, description: app.description, problem: nil)
+                                             file: entry.file, description: app.description, problem: nil, icon: icon(app.id))
             }
             let name = label(for: entry) ?? entry.brokenName ?? id
             let problem = entry.issues.first.map { "line \($0.line): \($0.message)" } ?? "the file has errors"

@@ -261,7 +261,7 @@ private struct ResultRow: View {
                 } else if row.isLowkeySite {
                     Image(systemName: "globe").font(.system(size: 22)).frame(width: 32, height: 32)
                 } else if row.isMicro {
-                    MicroRowIcon(isWorking: row.isWorking)
+                    MicroRowIcon(isWorking: row.isWorking, icon: row.microIcon)
                 } else if row.isCalculation {
                     CalculationRowIcon()
                 } else if let url = row.url {
@@ -367,13 +367,20 @@ private struct CalculationRowIcon: View {
     }
 }
 
-/// A micro-app has no app icon: a terminal symbol, or a warning for a broken file.
+/// A micro-app has no app icon: its own `icon`, else a terminal symbol, or a warning for a broken file.
 private struct MicroRowIcon: View {
     let isWorking: Bool
+    let icon: MicroIcon?
 
     var body: some View {
-        Image(systemName: isWorking ? "terminal" : "exclamationmark.triangle")
-            .font(.system(size: 13, weight: .medium))
+        Group {
+            if isWorking, icon != nil {
+                MicroIconView(icon: icon, size: 16)
+            } else {
+                Image(systemName: isWorking ? MicroIcon.defaultSymbol : "exclamationmark.triangle")
+                    .font(.system(size: 13, weight: .medium))
+            }
+        }
             .foregroundStyle(isWorking ? Color.tingInk.opacity(0.75) : Color.tingAmber)
             .frame(width: 24, height: 24)
             .background(RoundedRectangle(cornerRadius: 5).fill(Color.tingInk.opacity(0.06)))

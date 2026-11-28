@@ -70,6 +70,8 @@ public struct MicroApp: Equatable, Sendable {
     public var tools: [String]
     /// Not listed in launcha; still starts from a key binding.
     public var hidden: Bool
+    /// From the `icon` key; `nil` when the file has none. `microIcons` of the config wins over it.
+    public var icon: MicroIcon?
     /// Offer the last used parameter values next time (default `true`).
     public var remember: Bool
     public var params: [Param]
@@ -213,7 +215,7 @@ public enum MicroAppChecker {
     public static let maxFileSize = 256 * 1024
     public static var tooLargeMessage: String { "the file is larger than \(maxFileSize / 1024) KB" }
     public static let notUTF8Message = "the file is not UTF-8 text"
-    public static let topKeys = ["format", "inherit", "id", "name", "description", "tools", "hidden", "remember", "timeout", "params",
+    public static let topKeys = ["format", "inherit", "id", "name", "description", "tools", "hidden", "icon", "remember", "timeout", "params",
                                  "context", "input", "command", "steps", "output"]
     /// The keys of a library file (`libs/NAME.yaml`).
     public static let libraryKeys = ["format", "description", "tools", "timeout", "params", "context", "input", "steps", "output"]
@@ -507,6 +509,11 @@ public enum MicroAppChecker {
             self.parsedHidden = parsedHidden
             let hidden = parsedHidden ?? false
             let remember = top["remember"].flatMap { bool($0.value, "remember") } ?? true
+            var icon: MicroIcon?
+            if let e = top["icon"], let text = string(e.value, "icon") {
+                icon = MicroIcon(text)
+                if icon == nil { fail(e.value.line, "`icon` must be \(MicroIcon.rule)") }
+            }
             var timeLimit = MicroAppRunRules.timeLimit
             var timeOK = true
             if let e = top["timeout"] {
@@ -556,13 +563,17 @@ public enum MicroAppChecker {
             let kept = params.filter { !dropped.contains($0.param.name) }
             guard let id, let description, let input, let steps, let output, timeOK, issues.isEmpty else { return nil }
             if let command {
-                return MicroApp(id: id, name: name, description: description, tools: tools, hidden: hidden, remember: remember,
-                                params: kept.map(\.param), context: declaredContext, input: input, command: command, output: output,
-                                timeLimit: timeLimit)
+                var app = MicroApp(id: id, name: name, description: description, tools: tools, hidden: hidden, remember: remember,
+                                   params: kept.map(\.param), context: declaredContext, input: input, command: command, output: output,
+                                   timeLimit: timeLimit)
+                app.icon = icon
+                return app
             }
-            return MicroApp(id: id, name: name, description: description, tools: tools, hidden: hidden, remember: remember,
-                            params: kept.map(\.param), context: declaredContext, input: input, steps: steps, output: output,
-                            timeLimit: timeLimit, source: text)
+            var app = MicroApp(id: id, name: name, description: description, tools: tools, hidden: hidden, remember: remember,
+                               params: kept.map(\.param), context: declaredContext, input: input, steps: steps, output: output,
+                               timeLimit: timeLimit, source: text)
+            app.icon = icon
+            return app
         }
 
         /// A file with `inherit`: its library and the file merged, then checked as one micro-app.
