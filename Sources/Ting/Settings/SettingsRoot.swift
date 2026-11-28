@@ -629,12 +629,17 @@ private struct MicroAppList: View {
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
             GridRow {
-                ForEach(["Name", "Id", "File", "State", "Hotkey"], id: \.self) { title in
+                ForEach(["Icon", "Name", "Id", "File", "State", "Hotkey"], id: \.self) { title in
                     MonoLabel(title, size: 9, weight: .regular, tracking: 1).foregroundStyle(.secondary)
                 }
             }
             ForEach(entries, id: \.file) { entry in
                 GridRow {
+                    if let id = entry.app?.id {
+                        MicroIconCell(micro: id, fileIcon: entry.app?.icon)
+                    } else {
+                        Text("—").foregroundStyle(.secondary)
+                    }
                     Text(entry.app?.shownName ?? "—").lineLimit(1)
                     Text(entry.app?.id ?? entry.fileID).font(.system(size: 11, design: .monospaced)).lineLimit(1)
                     Text(entry.file).font(.system(size: 11, design: .monospaced)).lineLimit(1).truncationMode(.middle)

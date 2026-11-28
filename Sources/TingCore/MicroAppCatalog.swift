@@ -46,6 +46,8 @@ public struct MicroAppCatalog: Equatable, Sendable {
     public private(set) var entries: [MicroAppEntry]
     /// The problems of the library files (`libs/*.yaml`), by file and line.
     public var libraryIssues: [MicroAppIssue] = []
+    /// `microIcons` of the config: micro-app id → icon text. See `icon(_:)`.
+    public var iconOverrides: [String: String] = [:]
 
     public init(entries: [MicroAppEntry] = [], libraryIssues: [MicroAppIssue] = []) {
         self.entries = entries

@@ -167,7 +167,7 @@ enum MicroAppInheritance {
     }
 
     /// Keys of a micro-app that its library cannot give.
-    static let ownKeys: Set<String> = ["format", "inherit", "id", "name", "hidden", "remember"]
+    static let ownKeys: Set<String> = ["format", "inherit", "id", "name", "hidden", "icon", "remember"]
 
     /// The library's keys (without `format`), then the file's keys over them:
     /// - `params`: a param with the same `name` takes the file's keys over the library's; new ones are added;

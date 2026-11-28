@@ -195,3 +195,33 @@ final class MicroAppStoreTests: XCTestCase {
         XCTAssertEqual(model.microApps.first?.app?.timeLimit, 900)
     }
 }
+
+@MainActor final class MicroIconSettingsTests: XCTestCase {
+    /// An icon set in Settings is written to `microIcons` and reaches the leader menu at once; the micro-app file is not touched.
+    func testSettingAnIconReachesTheLeaderMenuAndKeepsTheFile() throws {
+        _ = NSApplication.shared
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ting-micro-icon-" + UUID().uuidString)
+        let store = ConfigStore(url: dir.appendingPathComponent("config.json"))
+        let folder = MicroAppStore.folderURL(configURL: store.url)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        let file = folder.appendingPathComponent("a.yaml")
+        let text = "format: ting.microapp/2\nicon: 🌐\ndescription: d\ninput: none\ncommand: x\n"
+        try text.write(to: file, atomically: true, encoding: .utf8)
+        let model = AppModel(presentsWindows: false, store: store)
+        model.reload()
+        XCTAssertEqual(model.leader.session.microApps.icon("a"), .glyph("🌐"))
+
+        model.setMicroIcon("🚀", for: "a")
+        XCTAssertEqual(model.config.microIcons, ["a": "🚀"])
+        XCTAssertEqual(model.microCatalog.icon("a"), .glyph("🚀"))
+        XCTAssertEqual(model.leader.session.microApps.icon("a"), .glyph("🚀"))
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), text)
+
+        model.setMicroIcon("Not an icon", for: "a")
+        XCTAssertEqual(model.config.microIcons, ["a": "🚀"])
+        model.setMicroIcon(nil, for: "a")
+        XCTAssertEqual(model.config.microIcons, [:])
+        XCTAssertEqual(model.leader.session.microApps.icon("a"), .glyph("🌐"))
+    }
+}

@@ -129,6 +129,46 @@ output:
         #expect(a.command == "echo hi")
     }
 
+    @Test func icon() throws {
+        func file(_ icon: String) -> String {
+            "format: ting.microapp/2\nicon: \(icon)\ndescription: d\ninput: none\ncommand: x\noutput:\n  to: [panel]\n"
+        }
+        #expect(try app(file("🌐")).icon == .glyph("🌐"))
+        #expect(try app(file("👨‍👩‍👧")).icon == .glyph("👨‍👩‍👧"))
+        #expect(try app(file("λ")).icon == .glyph("λ"))
+        #expect(try app(file("text.magnifyingglass")).icon == .symbol("text.magnifyingglass"))
+        #expect(try app("format: ting.microapp/2\ndescription: d\ninput: none\ncommand: x\n").icon == nil)
+        // A file that inherits a library keeps its own icon.
+        let inherited = try app("format: ting.microapp/2\ninherit: translate\nname: Translate to German\nicon: 🇩🇪\nsteps:\n  - id: translate\n    params:\n      language: German\n")
+        #expect(inherited.icon == .glyph("🇩🇪"))
+        for bad in ["two words", "Globe", "🌐🌐"] {
+            let found = issues(file(bad))
+            #expect(found.map(\.line) == [2] && found[0].message.contains("`icon` must be"), "\(bad): \(found)")
+        }
+
+        // An invisible character, or one with too many combining marks, is not an icon.
+        #expect(MicroIcon("\u{202E}") == nil && MicroIcon("\u{FEFF}") == nil)
+        #expect(MicroIcon("a" + String(repeating: "\u{301}", count: 16)) == nil)
+        #expect(MicroIcon("é") == .glyph("é") && MicroIcon("1️⃣") == .glyph("1️⃣"))
+
+        // `microIcons` of the config wins over the file; a value that is not an icon does not.
+        var catalog = MicroAppCatalog.load([(name: "a.yaml", text: file("🌐"))])
+        #expect(catalog.icon("a") == .glyph("🌐"))
+        #expect(catalog.icon("missing") == nil)
+        catalog.iconOverrides = ["a": "globe", "missing": "🔤"]
+        #expect(catalog.icon("a") == .symbol("globe"))
+        #expect(catalog.icon("missing") == .glyph("🔤"))
+        #expect(catalog.launchaCandidates(bindings: []).map(\.icon) == [.symbol("globe")])
+        catalog.iconOverrides = ["a": "not an icon"]
+        #expect(catalog.icon("a") == .glyph("🌐"))
+
+        var config = try ConfigCodec.decode(Data("{}".utf8))
+        #expect(config.microIcons.isEmpty)
+        config = try ConfigCodec.decode(Data(#"{"microIcons":{"a":"🔤"}}"#.utf8))
+        #expect(config.microIcons == ["a": "🔤"])
+        #expect(try ConfigCodec.decode(ConfigCodec.encode(config)) == config)
+    }
+
     @Test func hiddenAndRemember() throws {
         let a = try app("""
         format: ting.microapp/2

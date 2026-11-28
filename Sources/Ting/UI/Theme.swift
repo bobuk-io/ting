@@ -211,10 +211,34 @@ struct HoverRowStyle: ButtonStyle {
     }
 }
 
+/// The icon of a micro-app: its emoji or letter, its SF Symbol, or the terminal symbol when it
+/// has none or macOS does not know the symbol name. The caller gives the colour of a symbol or a letter.
+struct MicroIconView: View {
+    let icon: MicroIcon?
+    var size: CGFloat = 16
+
+    var body: some View {
+        Group {
+            switch icon {
+            case .glyph(let text)?:
+                Text(text).font(.system(size: size * 0.85)).lineLimit(1).minimumScaleFactor(0.5)
+            case .symbol(let name)? where NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil:
+                Image(systemName: name).resizable().scaledToFit()
+            default:
+                Image(systemName: MicroIcon.defaultSymbol).resizable().scaledToFit()
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
 /// App icon for an `.app` item, a globe for a URL, a folder for a group.
 struct ItemIcon: View {
     let item: Item
     var size: CGFloat = 18
+    /// The icon of a `micro` item, from `MicroAppCatalog.icon`.
+    var microIcon: MicroIcon?
 
     var body: some View {
         Group {
@@ -230,7 +254,7 @@ struct ItemIcon: View {
             case .group:
                 Image(systemName: "folder").resizable().foregroundStyle(.secondary)
             case .micro:
-                Image(systemName: "terminal").resizable().foregroundStyle(.secondary)
+                MicroIconView(icon: microIcon, size: size).foregroundStyle(.secondary)
             case .open(let panel):
                 Image(systemName: panel.symbol).resizable().foregroundStyle(.secondary)
             case .window:

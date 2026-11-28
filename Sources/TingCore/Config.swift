@@ -352,7 +352,7 @@ public struct ScheduleSettings: Equatable, Sendable, Codable {
 /// "appearance", "launchAtLogin", "showMenuBarIcon", "showPanelHeader", "playSound", "extendedKeys",
 /// "sound", "soundVolume", "launcha" (`LaunchaSettings`), "clipbawd" (`ClipbawdSettings`),
 /// "microApps" (`MicroAppsSettings`), "schedule" (`ScheduleSettings`), "chatta" (`ChattaSettings`),
-/// "windowManagement" (`WindowManagementSettings`), "appHotkeys", "microHotkeys", "items".
+/// "windowManagement" (`WindowManagementSettings`), "appHotkeys", "microHotkeys", "microIcons", "items".
 /// Every key is optional when decoding; a missing key takes the default below.
 public struct Config: Equatable, Sendable, Codable {
     public static let currentVersion = 1
@@ -405,6 +405,8 @@ public struct Config: Equatable, Sendable, Codable {
     public var appHotkeys: [AppShortcut] = []
     /// Direct global shortcuts that start micro-apps; written by hand, older files default to none.
     public var microHotkeys: [MicroShortcut] = []
+    /// Micro-app id → icon (`MicroIcon` text), set in Settings; wins over the `icon` key of the file.
+    public var microIcons: [String: String] = [:]
     public var items: [Item] = []
 
     public init() {}
@@ -430,7 +432,7 @@ public struct Config: Equatable, Sendable, Codable {
         case version, leader, alternateLeader, showDelay, unknownKey, appearance, theme
         case launchAtLogin, showMenuBarIcon, showPanelHeader, playSound, sound, soundVolume, extendedKeys
         case launcha, clipbawd, microApps, schedule, chatta, windowManagement
-        case appHotkeys, microHotkeys, items
+        case appHotkeys, microHotkeys, microIcons, items
     }
 
     public init(from decoder: Decoder) throws {
@@ -461,6 +463,7 @@ public struct Config: Equatable, Sendable, Codable {
             ?? defaults.windowManagement
         appHotkeys = try container.decodeIfPresent([AppShortcut].self, forKey: .appHotkeys) ?? defaults.appHotkeys
         microHotkeys = try container.decodeIfPresent([MicroShortcut].self, forKey: .microHotkeys) ?? defaults.microHotkeys
+        microIcons = try container.decodeIfPresent([String: String].self, forKey: .microIcons) ?? defaults.microIcons
         items = try container.decodeIfPresent([Item].self, forKey: .items) ?? defaults.items
     }
 
@@ -492,6 +495,7 @@ public struct Config: Equatable, Sendable, Codable {
         try container.encode(windowManagement, forKey: .windowManagement)
         try container.encode(appHotkeys, forKey: .appHotkeys)
         try container.encode(microHotkeys, forKey: .microHotkeys)
+        if !microIcons.isEmpty { try container.encode(microIcons, forKey: .microIcons) }
         try container.encode(items, forKey: .items)
     }
 }
